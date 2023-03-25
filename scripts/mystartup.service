@@ -1,0 +1,20 @@
+################################################################################
+# mystartup.service
+#
+# This service unit is for testing my systemd startup service
+# By David Both
+# Licensed under GPL V2
+#
+################################################################################
+# This program should be placed in /usr/local/lib/systemd/system/.
+# Create a symlink to it from the /etc/systemd/system directory.
+################################################################################
+
+[Unit]
+Description=Runs /usr/local/bin/mystartup.sh
+  
+[Service]
+ExecStart=/usr/local/bin/mystartup.sh
+
+[Install]
+WantedBy=multi-user.target

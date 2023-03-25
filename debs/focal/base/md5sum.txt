@@ -1,0 +1,7 @@
+d915905827404e52784f154018bf1ef7  librga2_2.2.0-1+git220920.c1d5c71~focal_arm64.deb
+652fc7bf2bc63cb5b3bd7ea75ec30475  librga-dev_2.2.0-1+git220920.c1d5c71~focal_arm64.deb
+a7da3a69ac53ab13f829bb7bdd7383e1  librockchip-mpp1_1.5.0-1+git230210.c145c84~focal_arm64.deb
+79eb77a7f43b779d3074f8ea1721d6ab  librockchip-mpp-dev_1.5.0-1+git230210.c145c84~focal_arm64.deb
+54b29c28d2953a2780d17b6856a82ea9  librockchip-vpu0_1.5.0-1+git230210.c145c84~focal_arm64.deb
+5787276dc6e841d907fa4951b226ca13  rockchip-mpp-demos_1.5.0-1+git230210.c145c84~focal_arm64.deb
+16948713e8d1b0d199610f2ed1a12726  rockchip-multimedia-config_1.0.0-2+focal_all.deb
