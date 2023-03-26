@@ -18,24 +18,35 @@ source ./env/${dist}.env
 
 if [ ! -x "/usr/sbin/debootstrap" ];then
 	echo "/usr/sbin/debootstrap not found, please install debootstrap!"
-	echo "example: apt install debootstrap"
+	echo "example: sudo apt install debootstrap"
 	exit 1
 fi
 
-if [ ! -x "/usr/bin/qemu-aarch64-static" ];then
+host_arch=$(uname -m)
+if [ "${host_arch}" == "aarch64" ];then
+	CROSS_FLAG=0
+else
+	CROSS_FLAG=1
+fi
+
+if [ $CROSS_FLAG -eq 1 ] && [ ! -x "/usr/bin/qemu-aarch64-static" ];then
 	echo "/usr/bin/qemu-aarch64-static not found, please install qemu-aarch64-static!"
-	echo "example: apt install qemu-aarch64-static"
+	echo "example: sudo apt install qemu-aarch64-static"
 	exit 1
 fi
 
 output_dir=build/${dist}
-function on_trap() {
+function unbind() {
 	cd ${WORKDIR}
 	umount -f ${output_dir}/dev/pts
 	umount -f ${output_dir}/dev
 	umount -f ${output_dir}/proc
 	umount -f ${output_dir}/sys
 	umount -f ${output_dir}/run
+}
+
+function on_trap() {
+	unbind
 	exit 0
 }
 trap "on_trap" 2 3 15
@@ -55,18 +66,24 @@ mkdir -p ${output_dir}/proc
 mkdir -p ${output_dir}/run
 mkdir -p ${output_dir}/sys
 
-debootstrap --arch=arm64 --foreign --include=locales-all,tzdata $dist ${output_dir} "$DEBOOTSTRAP_MIRROR" 
+if [ $CROSS_FLAG -eq 1 ];then
+	debootstrap --arch=arm64 --foreign --include=locales-all,tzdata $dist ${output_dir} "$DEBOOTSTRAP_MIRROR" 
+	mkdir -p ${output_dir}/usr/bin && cp -fv /usr/bin/qemu-aarch64-static "${output_dir}/usr/bin/"
+else
+	debootstrap --arch=arm64 --include=locales-all,tzdata $dist ${output_dir} "$DEBOOTSTRAP_MIRROR" 
+fi
 
 mount -o bind /dev ${output_dir}/dev
 mount -o bind /dev/pts ${output_dir}/dev/pts
 mount -o bind /sys ${output_dir}/sys
 mount -o bind /proc ${output_dir}/proc
 mount -o bind /run ${output_dir}/run
-cp -fv /usr/bin/qemu-aarch64-static "${output_dir}/usr/bin/"
 
 # second stage
 echo "Stage 2 ..."
-chroot "${output_dir}" debootstrap/debootstrap --second-stage
+if [ $CROSS_FLAG -eq 1 ];then
+	chroot "${output_dir}" debootstrap/debootstrap --second-stage
+fi
 echo "done"
 
 # third stage
@@ -75,7 +92,11 @@ cp ${SOURCES_LIST_WORK} ${output_dir}/etc/apt/sources.list
 mkdir ${output_dir}/tmp/debs
 cp -av ${EXTEND_DEBS_HOME}/* ${output_dir}/tmp/debs/
 cp -v "${MKROOTFS_CHROOT}" ${output_dir}/tmp/chroot.sh
-chroot ${output_dir} /usr/bin/qemu-aarch64-static /bin/bash /tmp/chroot.sh
+if [ $CROSS_FLAG -eq 1 ];then
+	chroot ${output_dir} /usr/bin/qemu-aarch64-static /bin/bash /tmp/chroot.sh || (echo "failed" ; unbind; exit 1)
+else
+	chroot ${output_dir} /bin/bash /tmp/chroot.sh || (echo "failed" ; unbind; exit 1)
+fi
 
 echo "umount ... "
 umount ${output_dir}/dev/pts
@@ -86,6 +107,8 @@ umount ${output_dir}/run
 echo 'done'
 echo
 
-rm ${output_dir}/usr/bin/qemu-aarch64-static
+if [ $CROSS_FLAG -eq 1 ];then
+	rm ${output_dir}/usr/bin/qemu-aarch64-static
+fi
 cp -v ${SOURCES_LIST_ORIG} ${output_dir}/etc/apt/sources.list
 exit 0
