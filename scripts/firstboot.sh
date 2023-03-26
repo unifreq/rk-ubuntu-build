@@ -171,6 +171,11 @@ EOF
 	fi
 }
 
+function reconfig_openssh_server() {
+	rm -f /etc/ssh/ssh_host_*key*
+	DEBIAN_FRONTEND=noninteractive dpkg-reconfigure openssh-server
+}
+
 reset_machine_id
 if [ "$machine_hostname" != "" ];then
     setup_hostname $machine_hostname
@@ -187,6 +192,7 @@ fix_partition
 check_partition_count
 resize_partition
 resize_filesystem
+reconfig_openssh_server
 enable_service ssh.service
 start_service ssh.service
 enable_service NetworkManager.service
