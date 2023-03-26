@@ -19,3 +19,11 @@ Instructions:
 3. Get the target image:
   
       build/h68k_ubuntu_focal_vYYYYMMDD.img
+
+4. System Requirements：
+
+      x86_64 host: debian or ubuntu
+      
+      arm64 host: debian or ubuntu or armbian
+      
+      Storage space: >= 5GB
