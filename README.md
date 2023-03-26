@@ -26,4 +26,4 @@ Instructions:
       
       arm64 host: debian or ubuntu or armbian
       
-      Storage space: >= 5GB
+      Storage space: >= 8GB
