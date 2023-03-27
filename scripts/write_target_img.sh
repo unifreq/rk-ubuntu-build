@@ -30,11 +30,11 @@ losetup -fP ${diskimg}
 loopdev=$(losetup | grep $diskimg | awk '{print $1}')
 echo "The loop device is ${loopdev}"
 
-if [ -z "$rootfs_format" ];then
+if [ -z "${rootfs_format}" ];then
 	rootfs_format=btrfs
 fi
 
-case $rootfs_format in
+case ${rootfs_format} in
 	btrfs) echo "mount -o compress=zstd:6 -t btrfs ${loopdev}p2 ${rootpath}"
 	       mount -o compress=zstd:6 -t btrfs ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
 	       ;;
@@ -44,7 +44,7 @@ case $rootfs_format in
 	  xfs) echo "mount -t xfs ${loopdev}p2 ${rootpath}"
 	       mount -t xfs ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
 	       ;;
-	    *) echo "Unsupport filesystem format: $rootfs_format"
+	    *) echo "Unsupport filesystem format: ${rootfs_format}"
 	       losetup -D
 	       exit 1
 	       ;;
@@ -119,6 +119,16 @@ cd ${rootpath}
 		exit_on_falue
 	fi
 )
+
+if [ "${rootfs_format}" != "btrfs" ];then
+	(
+		echo "Modify bootEnv ..."
+		cd boot
+		sed -e "s/rootfstype=btrfs/rootfstype=${rootfs_format}/" -i bootEnv.txt
+		sed -e "/rootflags=/d" -i bootEnv.txt
+		echo "rootflags=defaults" >> bootEnv.txt
+	)
+fi
 
 (
 	echo "Create /etc/fstab ... "
