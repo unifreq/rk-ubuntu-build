@@ -26,7 +26,7 @@ echo
 echo 'Install custom packages ...'
 apt install -y netplan.io linux-firmware openssh-server xfce4 lightdm \
 	mesa-utils btrfs-progs xfsdump xfsprogs usbutils pciutils htop \
-	hdparm lm-sensors iperf3 alsa-utils qasmixer pulsemixer || exit 1
+	hdparm lm-sensors iperf3 alsa-utils qasmixer pulsemixer ethtool || exit 1
 apt remove -y gdm3
 dpkg-reconfigure lightdm
 echo 'done'
