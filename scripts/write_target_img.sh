@@ -29,8 +29,26 @@ source ${WORKDIR}/env/uuid.env
 losetup -fP ${diskimg}
 loopdev=$(losetup | grep $diskimg | awk '{print $1}')
 echo "The loop device is ${loopdev}"
-echo "mount -o compress=zstd:6 -t btrfs ${loopdev}p2 ${rootpath}"
-mount -o compress=zstd:6 -t btrfs ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
+
+if [ -z "$rootfs_format" ];then
+	rootfs_format=btrfs
+fi
+
+case $rootfs_format in
+	btrfs) echo "mount -o compress=zstd:6 -t btrfs ${loopdev}p2 ${rootpath}"
+	       mount -o compress=zstd:6 -t btrfs ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
+	       ;;
+	 ext4) echo "mount -t ext4 ${loopdev}p2 ${rootpath}"
+	       mount -t ext4 ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
+	       ;;
+	  xfs) echo "mount -t xfs ${loopdev}p2 ${rootpath}"
+	       mount -t xfs ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
+	       ;;
+	    *) echo "Unsupport filesystem format: $rootfs_format"
+	       losetup -D
+	       exit 1
+	       ;;
+esac
 
 mkdir -p ${rootpath}/boot
 echo "mount -t ext4 ${loopdev}p1 ${rootpath}/boot"
@@ -105,10 +123,23 @@ cd ${rootpath}
 (
 	echo "Create /etc/fstab ... "
 	cd etc
-cat > fstab <<EOF
+	case $rootfs_format in 
+		btrfs) cat > fstab <<EOF
 UUID=${rootuuid}  /                      btrfs  defaults,compress=zstd:6        0  0
 UUID=${bootuuid}  /boot                  ext4   defaults                        0  0
 EOF
+		       ;;
+		 ext4) cat > fstab <<EOF
+UUID=${rootuuid}  /                      ext4   defaults                        0  0
+UUID=${bootuuid}  /boot                  ext4   defaults                        0  0
+EOF
+		       ;;
+		  xfs) cat > fstab <<EOF
+UUID=${rootuuid}  /                      xfs    defaults                        0  0
+UUID=${bootuuid}  /boot                  ext4   defaults                        0  0
+EOF
+		       ;;
+	esac
 	echo "done"
 )
 

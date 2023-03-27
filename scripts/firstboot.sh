@@ -69,9 +69,11 @@ function resize_filesystem() {
 	echo "resize / at /dev/${part_name} ... "
 	case $fstype in 
 		btrfs) btrfs filesystem resize max /
-			;;
+		       ;;
 		 ext4) resize2fs /dev/${part_name}
-			;;
+		       ;;
+		  xfs) xfs_growfs -d /
+		       ;;
 	esac
 	echo "done"
 	echo 

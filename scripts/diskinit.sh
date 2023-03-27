@@ -12,6 +12,10 @@ if [ -z "$bootfs_size" ];then
 	bootfs_size=256
 fi
 
+if [ -z "$rootfs_format" ];then
+	rootfs_format=btrfs
+fi
+
 parted $loopdev mklabel gpt || exit 1
 bootfs_end=$((16 + bootfs_size))
 parted $loopdev mkpart primary 16Mib ${bootfs_end}Mib || (losetup -D ; exit 1)
@@ -20,8 +24,22 @@ bootuuid=$(uuidgen)
 rootuuid=$(uuidgen)
 echo "mkfs.ext4 -U $bootuuid -L "boot" ${loopdev}p1"
 mkfs.ext4 -U $bootuuid -L "boot" ${loopdev}p1 || (losetup -D; exit 1)
-echo "mkfs.btrfs -U $rootuuid -L "root" ${loopdev}p2 -m single"
-mkfs.btrfs -U $rootuuid -L "root" ${loopdev}p2 -m single || (losetup -D; exit 1)
+
+case $rootfs_format in
+	btrfs) echo "mkfs.btrfs -U $rootuuid -L "root" ${loopdev}p2 -m single"
+	       mkfs.btrfs -U $rootuuid -L "root" ${loopdev}p2 -m single || (losetup -D; exit 1)
+	       ;;
+	 ext4) echo "mkfs.ext4 -U $rootuuid -L "root" ${loopdev}p2"
+	       mkfs.ext4 -U $rootuuid -L "root" ${loopdev}p2 || (losetup -D; exit 1)
+	       ;;
+	  xfs) echo "mkfs.xfs -m uuid=$rootuuid -L "root" ${loopdev}p2"
+	       mkfs.xfs -m uuid=$rootuuid -L "root" ${loopdev}p2 || (losetup -D; exit 1)
+	       ;;
+	    *) echo "Unknown filesystem format: $rootfs_format"
+	       losetup -D
+	       exit 1
+	       ;;
+esac
 
 if [ -f "${bootloader}" ];then
 	echo "write bootloader ..."
