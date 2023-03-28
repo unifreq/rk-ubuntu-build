@@ -97,6 +97,13 @@ function start_service() {
 	echo
 }
 
+function stop_service() {
+	echo "stop service $1 ... "
+	systemctl stop $1
+	echo "done"
+	echo
+}
+
 function disable_service() {
 	echo "disable service $1 ... "
 	systemctl disable $1
@@ -176,6 +183,8 @@ EOF
 user-session=ubuntu
 EOF
 	fi
+	stop_service lightdm.service
+	start_service lightdm.service
 }
 
 function reconfig_openssh_server() {
@@ -184,25 +193,34 @@ function reconfig_openssh_server() {
 }
 
 reset_machine_id
+reconfig_openssh_server
 if [ "$machine_hostname" != "" ];then
     setup_hostname $machine_hostname
 fi
-if [ "$default_ifnames" != "" ];then
-    create_netplan_config "NetworkManager" $default_ifnames
-    netplan apply
-fi
+
 disable_suspend
+
 clean_logs
 clean_debootstrap_dir
-set_lightdm_default_xsession "xfce"
+
 fix_partition
 check_partition_count
 resize_partition
 resize_filesystem
-reconfig_openssh_server
+
+set_lightdm_default_xsession "xfce"
+
+if [ "$default_ifnames" != "" ];then
+    create_netplan_config "NetworkManager" $default_ifnames
+    stop_service NetworkManager.service
+    enable_service NetworkManager.service
+    start_service NetworkManager.service
+    netplan apply
+fi
+
 enable_service ssh.service
 start_service ssh.service
-enable_service NetworkManager.service
-start_service NetworkManager.service
+
 enable_rknpu
+
 disable_service $FIRSTBOOT
