@@ -31,7 +31,7 @@ fi
 
 if [ $CROSS_FLAG -eq 1 ] && [ ! -x "/usr/bin/qemu-aarch64-static" ];then
 	echo "/usr/bin/qemu-aarch64-static not found, please install qemu-aarch64-static!"
-	echo "example: sudo apt install qemu-aarch64-static"
+	echo "example: sudo apt install qemu-user-static"
 	exit 1
 fi
 
