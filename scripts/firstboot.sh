@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SERVICE=firstboot.service
+FIRSTBOOT=firstboot.service
 
 function get_root_partition_name() {
 	local root_ptname=$(df / | tail -n1 | awk '{print $1}' | awk -F '/' '{print $3}')
@@ -157,6 +157,11 @@ function enable_rknpu() {
 	echo rknpu > /etc/modules-load.d/rknpu.conf
 	echo "alias rknpu rknpu" > /etc/modprobe.d/rknpu.conf
 	modprobe rknpu
+	if [ -f "/usr/local/lib/systemd/system/rknn.service" ];then
+		ldconfig
+		systemctl enable rknn.service
+		systemctl start rknn.service
+	fi
 }
 
 function set_lightdm_default_xsession() {
@@ -200,4 +205,4 @@ start_service ssh.service
 enable_service NetworkManager.service
 start_service NetworkManager.service
 enable_rknpu
-disable_service $SERVICE
+disable_service $FIRSTBOOT

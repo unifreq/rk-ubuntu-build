@@ -168,10 +168,48 @@ EOF
 	echo "done"
 )
 
-if [ -d "$add_files_home" ];then
-	echo "Copy Additition files ... "
-	cp -av $add_files_home/* ./
+if [ -n "${platform_add_archive_home}" ] && [ -d "$platform_add_archive_home" ];then
+	echo "Extract platform additition archives ... "
+	target_path=${PWD}
+	(
+		cd $platform_add_archive_home
+		arcs=$(ls)
+		for arc in $arcs;do
+			echo "$arc"
+			tar xf $arc -C $target_path
+		done
+	)
 	echo "done"
+	echo
+fi
+
+if [ -n "${platform_add_fs_home}" ] && [ -d "$platform_add_fs_home" ];then
+	echo "Copy platform additition files ... "
+	cp -av ${platform_add_fs_home}/* ./ 2>/dev/null
+	echo "done"
+	echo
+fi
+
+if [ -n "${machine_add_archive_home}" ] && [ -d "$machine_add_archive_home" ];then
+	echo "Extract machine additition archives ... "
+	target_path=${PWD}
+	(
+		cd $machine_add_archive_home
+		arcs=$(ls)
+		for arc in $arcs;do
+			echo "$arc"
+			tar xf $arc -C $target_path
+		done
+	)
+	echo "done"
+	echo
+fi
+
+if [ -n "${machine_add_fs_home}" ] && [ -d "$machine_add_fs_home" ];then
+	echo "Copy machine additition files ... "
+	cp -av ${machine_add_fs_home}/* ./ 2>/dev/null
+	echo "done"
+	echo
 fi
 
 cd ${WORKDIR}
