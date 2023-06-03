@@ -1,11 +1,11 @@
-deb https://mirror.sjtu.edu.cn/ubuntu-ports/ focal main restricted universe multiverse
-# deb-src https://mirror.sjtu.edu.cn/ubuntu-ports/ focal main restricted universe multiverse
+deb https://mirrors.ustc.edu.cn/ubuntu-ports/ focal main restricted universe multiverse
+# deb-src https://mirrors.ustc.edu.cn/ubuntu-ports/ focal main restricted universe multiverse
 
-deb https://mirror.sjtu.edu.cn/ubuntu-ports/ focal-updates main restricted universe multiverse
-# deb-src https://mirror.sjtu.edu.cn/ubuntu-ports/ focal-updates main restricted universe multiverse
+deb https://mirrors.ustc.edu.cn/ubuntu-ports/ focal-updates main restricted universe multiverse
+# deb-src https://mirrors.ustc.edu.cn/ubuntu-ports/ focal-updates main restricted universe multiverse
 
-deb https://mirror.sjtu.edu.cn/ubuntu-ports/ focal-backports main restricted universe multiverse
-# deb-src https://mirror.sjtu.edu.cn/ubuntu-ports/ focal-backports main restricted universe multiverse
+deb https://mirrors.ustc.edu.cn/ubuntu-ports/ focal-backports main restricted universe multiverse
+# deb-src https://mirrors.ustc.edu.cn/ubuntu-ports/ focal-backports main restricted universe multiverse
 
-deb https://mirror.sjtu.edu.cn/ubuntu-ports/ focal-security main restricted universe multiverse
-# deb-src https://mirror.sjtu.edu.cn/ubuntu-ports/ focal-security main restricted universe multiverse
+deb https://mirrors.ustc.edu.cn/ubuntu-ports/ focal-security main restricted universe multiverse
+# deb-src https://mirrors.ustc.edu.cn/ubuntu-ports/ focal-security main restricted universe multiverse
