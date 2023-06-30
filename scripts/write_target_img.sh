@@ -153,6 +153,16 @@ EOF
 	echo "done"
 )
 
+(
+	if [ -n "${user_pswd}" ];then
+		echo "init user_password_group file"
+		for upg in ${user_pswd};do
+			echo $upg >> etc/user_pswd
+		done
+		echo "done"
+	fi
+)
+
 ( 
 	echo "Create the custom services ... "	
 	mkdir -p usr/local/lib/systemd/system usr/local/bin

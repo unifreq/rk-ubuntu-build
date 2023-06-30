@@ -192,6 +192,41 @@ function reconfig_openssh_server() {
 	DEBIAN_FRONTEND=noninteractive dpkg-reconfigure openssh-server
 }
 
+function modify_user_pswd() {
+	local file=/etc/user_pswd
+	if [ -f ${file} ];then
+		ups=$(cat ${file})
+		for up in ${ups};do
+			u=$(echo ${up} | awk -F ':' '{print $1}')
+			p=$(echo ${up} | awk -F ':' '{print $2}')
+			g=$(echo ${up} | awk -F ':' '{print $3}')
+			G=$(echo ${up} | awk -F ':' '{print $4}')
+
+			# create new user if not exists
+			if ! grep -e "^${u}:" /etc/passwd;then
+				echo "create group ${g} ..."
+				groupadd ${g}
+				echo "create user ${u} ..."
+				if [ -n "$G" ];then
+					useradd -d /home/${u} -m -g ${g} -G ${G} -s /bin/bash ${u}
+				else
+					useradd -d /home/${u} -m -g ${g} -s /bin/bash ${u}
+				fi
+			fi
+
+			# setup default password for user
+			echo -n "change user ${u}'s password ..."
+			if echo "${u}:${p}" | /usr/sbin/chpasswd -c SHA512; then
+				echo "succeed"
+			else
+				echo "failed"
+			fi
+		done
+		rm -f ${file}
+		sync
+	fi
+}
+
 reset_machine_id
 reconfig_openssh_server
 if [ "$machine_hostname" != "" ];then
@@ -207,6 +242,8 @@ fix_partition
 check_partition_count
 resize_partition
 resize_filesystem
+
+modify_user_pswd
 
 set_lightdm_default_xsession "xfce"
 
