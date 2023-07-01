@@ -3,6 +3,10 @@ name=$1
 size=$2
 bootloader=$3
 
+losetup -D
+if [ -f $name ];then
+	rm -f $name
+fi
 dd if=/dev/zero of=$name bs=1M count=$size
 losetup -fP $name
 loopdev=$(losetup | grep $name | awk '{print $1}')
