@@ -25,7 +25,7 @@ if [ ! -f ${kernel_home}/header-${kernel_version}.tar.gz ];then
 	exit 1
 fi
 
-source ${WORKDIR}/env/uuid.env
+source ${WORKDIR}/build/uuid.env
 losetup -fP ${diskimg}
 loopdev=$(losetup | grep $diskimg | awk '{print $1}')
 echo "The loop device is ${loopdev}"

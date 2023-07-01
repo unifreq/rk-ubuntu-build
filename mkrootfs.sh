@@ -10,11 +10,11 @@ if [ $# -lt 1 ];then
 fi
 
 dist=$1
-if [ ! -f "./env/${dist}.env" ];then
-	echo "${WORKDIR}/env/${dist}.env not exists!"
+if [ ! -f "./env/linux/${dist}.env" ];then
+	echo "${WORKDIR}/env/linux/${dist}.env not exists!"
 	exit 1
 fi
-source ./env/${dist}.env
+source ./env/linux/${dist}.env
 
 if [ ! -x "/usr/sbin/debootstrap" ];then
 	echo "/usr/sbin/debootstrap not found, please install debootstrap!"
@@ -35,7 +35,18 @@ if [ $CROSS_FLAG -eq 1 ] && [ ! -x "/usr/bin/qemu-aarch64-static" ];then
 	exit 1
 fi
 
-output_dir=build/${dist}
+if [ -n "$OS_RELEASE" ];then
+	os_release=$OS_RELEASE
+else
+	os_release=$dist
+fi
+
+if [ -n "$DIST_ALIAS" ];then
+	output_dir=build/${DIST_ALIAS}
+else
+	output_dir=build/${dist}
+fi
+
 function unbind() {
 	cd ${WORKDIR}
 	umount -f ${output_dir}/dev/pts
@@ -67,10 +78,10 @@ mkdir -p ${output_dir}/run
 mkdir -p ${output_dir}/sys
 
 if [ $CROSS_FLAG -eq 1 ];then
-	debootstrap --arch=arm64 --foreign --include=locales-all,tzdata $dist ${output_dir} "$DEBOOTSTRAP_MIRROR" 
+	debootstrap --arch=arm64 --foreign --include=locales-all,tzdata ${os_release} ${output_dir} "$DEBOOTSTRAP_MIRROR" 
 	mkdir -p ${output_dir}/usr/bin && cp -fv /usr/bin/qemu-aarch64-static "${output_dir}/usr/bin/"
 else
-	debootstrap --arch=arm64 --include=locales-all,tzdata $dist ${output_dir} "$DEBOOTSTRAP_MIRROR" 
+	debootstrap --arch=arm64 --include=locales-all,tzdata ${os_release} ${output_dir} "$DEBOOTSTRAP_MIRROR" 
 fi
 
 mount -o bind /dev ${output_dir}/dev

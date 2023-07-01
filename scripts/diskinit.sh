@@ -57,7 +57,7 @@ sync
 losetup -D
 sync
 
-cat > ${WORKDIR}/env/uuid.env <<EOF
+cat > ${WORKDIR}/build/uuid.env <<EOF
 bootuuid=$bootuuid
 rootuuid=$rootuuid
 EOF
