@@ -1,12 +1,13 @@
 #!/bin/bash
 
 if [ $# -lt 3 ];then
-	echo "Usage: $0 srcpath rootpath diskimg"
+	echo "Usage: $0 srcpath rootpath diskimg [firstboot_script]"
 	exit 1
 fi
 srcpath=$1
 rootpath=$2
 diskimg=$3
+firstboot=$4
 
 if [ ! -f ${kernel_home}/modules-${kernel_version}.tar.gz ];then
 	echo "The kernel modules archive is not exists! [${kernel_home}/modules-${kernel_version}.tar.gz]"
@@ -22,6 +23,20 @@ if [ ! -f ${kernel_home}/dtb-rockchip-${kernel_version}.tar.gz ];then
 fi
 if [ ! -f ${kernel_home}/header-${kernel_version}.tar.gz ];then
 	echo "The kernel header archive is not exists! [${kernel_home}/header-${kernel_version}.tar.gz]"
+	exit 1
+fi
+
+if [ "$firstboot" == "" ];then
+	firstboot="${WORKDIR}/scripts/firstboot/firstboot.sh"
+fi
+
+if [ ! -f "${firstboot}" ];then
+	echo "The firstboot script is not exists! [${firstboot}]"
+	exit 1
+fi
+
+if [ ! -f "${WORKDIR}/build/uuid.env" ];then
+	echo "file uuid.env is not exists!"
 	exit 1
 fi
 
@@ -168,9 +183,8 @@ EOF
 	mkdir -p usr/local/lib/systemd/system usr/local/bin
 	cp -v ${WORKDIR}/scripts/firstboot.service usr/local/lib/systemd/system/
 	cp -v ${WORKDIR}/scripts/mystartup.service usr/local/lib/systemd/system/
-	cp -v ${WORKDIR}/scripts/firstboot.sh usr/local/bin/
-	cp -v ${WORKDIR}/scripts/mystartup.sh usr/local/bin/
-  	chmod 755 usr/local/bin/*.sh
+	cp -v ${firstboot} usr/local/bin/firstboot.sh && chmod 755 usr/local/bin/firstboot.sh
+	cp -v ${WORKDIR}/scripts/mystartup.sh usr/local/bin/mystartup.sh && chmod 755 usr/local/bin/mystartup.sh
   	sed -e "s/\$machine_hostname/$machine_hostname/" -i usr/local/bin/firstboot.sh
   	sed -e "s/\$default_ifnames/$default_ifnames/" -i usr/local/bin/firstboot.sh
   	ln -sf /usr/local/lib/systemd/system/firstboot.service ./etc/systemd/system/multi-user.target.wants/firstboot.service

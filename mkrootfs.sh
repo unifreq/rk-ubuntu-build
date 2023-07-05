@@ -35,6 +35,11 @@ if [ $CROSS_FLAG -eq 1 ] && [ ! -x "/usr/bin/qemu-aarch64-static" ];then
 	exit 1
 fi
 
+if [ ! -f "${CHROOT}" ];then
+	echo "The chroot script is not exists! [${CHROOT}]"
+	exit 1
+fi
+
 if [ -n "$OS_RELEASE" ];then
 	os_release=$OS_RELEASE
 else
@@ -100,13 +105,22 @@ echo "done"
 # third stage
 echo "Stage 3 ..."
 cp ${SOURCES_LIST_WORK} ${output_dir}/etc/apt/sources.list
-mkdir ${output_dir}/tmp/debs
-cp -av ${EXTEND_DEBS_HOME}/* ${output_dir}/tmp/debs/
-cp -v "${MKROOTFS_CHROOT}" ${output_dir}/tmp/chroot.sh
+
+[ "${EXTEND_DEBS_HOME}" != "" ] && [ -d "${EXTEND_DEBS_HOME}" ] && \
+	mkdir -p ${output_dir}/tmp/debs && \
+	cp -av ${EXTEND_DEBS_HOME}/* ${output_dir}/tmp/debs/
+
+cp -v "${CHROOT}" "${output_dir}/tmp/chroot.sh"
+[ -n "${SSHD_PERMIT_ROOT_LOGIN}" ] && echo "${SSHD_PERMIT_ROOT_LOGIN}" > "${output_dir}/tmp/sshd_permit_root_login"
+[ -n "${SSHD_CIPHERS}" ] && echo "${SSHD_CIPHERS}" > "${output_dir}/tmp/sshd_ciphers"
+[ -n "${SSH_CIPHERS}" ] && echo "${SSH_CIPHERS}" > "${output_dir}/tmp/ssh_ciphers"
+[ -n "${DEFAULT_LANGUAGE}" ] && echo "${DEFAULT_LANGUAGE}" > "${output_dir}/tmp/language"
+[ -n "${DEFAULT_TIMEZONE}" ] && echo "${DEFAULT_TIMEZONE}" > "${output_dir}/tmp/timezone"
+
 if [ $CROSS_FLAG -eq 1 ];then
-	chroot ${output_dir} /usr/bin/qemu-aarch64-static /bin/bash /tmp/chroot.sh || (echo "failed" ; unbind; exit 1)
+	chroot ${output_dir} /usr/bin/qemu-aarch64-static /bin/bash /tmp/chroot.sh
 else
-	chroot ${output_dir} /bin/bash /tmp/chroot.sh || (echo "failed" ; unbind; exit 1)
+	chroot ${output_dir} /bin/bash /tmp/chroot.sh
 fi
 
 echo "umount ... "

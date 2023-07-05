@@ -3,7 +3,6 @@
 export WORKDIR=$(dirname $(readlink -f "$0"))
 cd ${WORKDIR}
 
-
 if [ $# -lt 3 ];then
 	echo "Usage: $0 soc machine dist"
 	echo "Example: $0 rk3568 h68k focal"
@@ -69,7 +68,7 @@ umount -f build/${rootfs_source}/sys 2>/dev/null
 umount -f build/${rootfs_source}/run 2>/dev/null
 umount -f build/${rootfs_source}/proc 2>/dev/null
 echo "Make the target image ... "
-scripts/write_target_img.sh "${WORKDIR}/build/${rootfs_source}" "${WORKDIR}/build/temp_root" "${output_img}"
+scripts/write_target_img.sh "${WORKDIR}/build/${rootfs_source}" "${WORKDIR}/build/temp_root" "${output_img}" "${FIRSTBOOT}"
 if [ $? -eq 0 ];then
 	echo "The target image [${output_img}] has been created successfully"
 	echo
