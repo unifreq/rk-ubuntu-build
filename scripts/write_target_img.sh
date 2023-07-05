@@ -169,9 +169,9 @@ EOF
 )
 
 (
-	if [ -n "${user_pswd}" ];then
+	if [ -n "${DEFAULT_USER_PSWD}" ];then
 		echo "init user_password_group file"
-		for upg in ${user_pswd};do
+		for upg in ${DEFAULT_USER_PSWD};do
 			echo $upg >> etc/user_pswd
 		done
 		echo "done"
@@ -185,8 +185,13 @@ EOF
 	cp -v ${WORKDIR}/scripts/mystartup.service usr/local/lib/systemd/system/
 	cp -v ${firstboot} usr/local/bin/firstboot.sh && chmod 755 usr/local/bin/firstboot.sh
 	cp -v ${WORKDIR}/scripts/mystartup.sh usr/local/bin/mystartup.sh && chmod 755 usr/local/bin/mystartup.sh
-  	sed -e "s/\$machine_hostname/$machine_hostname/" -i usr/local/bin/firstboot.sh
-  	sed -e "s/\$default_ifnames/$default_ifnames/" -i usr/local/bin/firstboot.sh
+	if [ -z "${DEFAULT_HOSTNAME}" ];then
+		hostname=${OS_RELEASE}
+	else
+		hostname=${DEFAULT_HOSTNAME}
+	fi
+	sed -e "s/\$machine_hostname/${hostname}/" -i usr/local/bin/firstboot.sh
+	sed -e "s/\$default_ifnames/${default_ifnames}/" -i usr/local/bin/firstboot.sh
   	ln -sf /usr/local/lib/systemd/system/firstboot.service ./etc/systemd/system/multi-user.target.wants/firstboot.service
   	ln -sf /usr/local/lib/systemd/system/mystartup.service ./etc/systemd/system/multi-user.target.wants/mystartup.service
 	echo "done"

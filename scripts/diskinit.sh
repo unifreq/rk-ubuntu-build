@@ -1,16 +1,25 @@
 #!/bin/bash
-name=$1
-size=$2
-bootloader=$3
+img_name=$1
+img_size=$2
+bootloader_size=$3
+bootfs_size=$4
+rootfs_format=$5
+bootloader=$6
 
 losetup -D
-if [ -f $name ];then
-	rm -f $name
+if [ -f $img_name ];then
+	rm -f $img_name
 fi
-dd if=/dev/zero of=$name bs=1M count=$size
-losetup -fP $name
-loopdev=$(losetup | grep $name | awk '{print $1}')
+
+dd if=/dev/zero of=$img_name bs=1M count=$img_size
+
+losetup -fP $img_name
+loopdev=$(losetup | grep $img_name | awk '{print $1}')
 echo "The loop device is $loopdev"
+
+if [ -z "$bootloader_size" ];then
+	bootloader_size=16
+fi
 
 if [ -z "$bootfs_size" ];then
 	bootfs_size=256
@@ -21,8 +30,8 @@ if [ -z "$rootfs_format" ];then
 fi
 
 parted $loopdev mklabel gpt || exit 1
-bootfs_end=$((16 + bootfs_size))
-parted $loopdev mkpart primary 16Mib ${bootfs_end}Mib || (losetup -D ; exit 1)
+bootfs_end=$((bootloader_size + bootfs_size))
+parted $loopdev mkpart primary ${bootloader_size}Mib ${bootfs_end}Mib || (losetup -D ; exit 1)
 parted $loopdev mkpart primary ${bootfs_end}Mib 100% || (losetup -D ;exit 1)
 bootuuid=$(uuidgen)
 rootuuid=$(uuidgen)
