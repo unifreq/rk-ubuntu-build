@@ -178,6 +178,36 @@ EOF
 	fi
 )
 
+(
+	conf="etc/firstboot_network.conf"
+	touch $conf
+	if [ -n "${NETPLAN_BACKEND}" ];then
+		echo "NETPLAN_BACKEND=${NETPLAN_BACKEND}" >> $conf
+		if [ "${NETPLAN_BACKEND}" == "networkd" ];then
+			echo "IF1_IPS=${IF1_IPS}" >> $conf
+			echo "IF1_ROUTES=${IF1_ROUTES}" >> $conf
+			echo "IF2_IPS=${IF2_IPS}" >> $conf
+			echo "IF2_ROUTES=${IF2_ROUTES}" >> $conf
+			echo "IF3_IPS=${IF3_IPS}" >> $conf
+			echo "IF3_ROUTES=${IF3_ROUTES}" >> $conf
+			echo "IF4_IPS=${IF4_IPS}" >> $conf
+			echo "IF4_ROUTES=${IF4_ROUTES}" >> $conf
+			echo "DNS=${DNS}" >> $conf
+			echo "SEARCH_DOMAIN=${SEARCH_DOMAIN}" >> $conf
+		fi
+	fi
+)
+
+(
+	conf="etc/firstboot_hostname"
+	if [ -z "${DEFAULT_HOSTNAME}" ];then
+		hostname=${OS_RELEASE}
+	else
+		hostname=${DEFAULT_HOSTNAME}
+	fi
+	echo $hostname > $conf
+)
+
 ( 
 	echo "Create the custom services ... "	
 	mkdir -p usr/local/lib/systemd/system usr/local/bin
@@ -185,13 +215,6 @@ EOF
 	cp -v ${WORKDIR}/scripts/mystartup.service usr/local/lib/systemd/system/
 	cp -v ${firstboot} usr/local/bin/firstboot.sh && chmod 755 usr/local/bin/firstboot.sh
 	cp -v ${WORKDIR}/scripts/mystartup.sh usr/local/bin/mystartup.sh && chmod 755 usr/local/bin/mystartup.sh
-	if [ -z "${DEFAULT_HOSTNAME}" ];then
-		hostname=${OS_RELEASE}
-	else
-		hostname=${DEFAULT_HOSTNAME}
-	fi
-	sed -e "s/\$machine_hostname/${hostname}/" -i usr/local/bin/firstboot.sh
-	sed -e "s/\$default_ifnames/${default_ifnames}/" -i usr/local/bin/firstboot.sh
   	ln -sf /usr/local/lib/systemd/system/firstboot.service ./etc/systemd/system/multi-user.target.wants/firstboot.service
   	ln -sf /usr/local/lib/systemd/system/mystartup.service ./etc/systemd/system/multi-user.target.wants/mystartup.service
 	echo "done"

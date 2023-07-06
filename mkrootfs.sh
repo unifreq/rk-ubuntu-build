@@ -111,6 +111,7 @@ cp ${SOURCES_LIST_WORK} ${output_dir}/etc/apt/sources.list
 	cp -av ${EXTEND_DEBS_HOME}/* ${output_dir}/tmp/debs/
 
 cp -v "${CHROOT}" "${output_dir}/tmp/chroot.sh"
+[ -n "${SSHD_PORT}" ] && echo "${SSHD_PORT}" > "${output_dir}/tmp/sshd_port"
 [ -n "${SSHD_PERMIT_ROOT_LOGIN}" ] && echo "${SSHD_PERMIT_ROOT_LOGIN}" > "${output_dir}/tmp/sshd_permit_root_login"
 [ -n "${SSHD_CIPHERS}" ] && echo "${SSHD_CIPHERS}" > "${output_dir}/tmp/sshd_ciphers"
 [ -n "${SSH_CIPHERS}" ] && echo "${SSH_CIPHERS}" > "${output_dir}/tmp/ssh_ciphers"

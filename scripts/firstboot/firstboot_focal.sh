@@ -20,7 +20,6 @@ function get_root_disk_name() {
 		    nvme?n?p?) disk_name=$(echo $root_ptname | awk '{print substr($1, 1, length($1)-2)}');;
 	    [hsv]d[a-z][1-9]*) disk_name=$(echo $root_ptname | awk '{print substr($1, 1, length($1)-1)}');;
 		            *) echo "无法识别 $root_ptname 的磁盘类型!"
-			       disable_service
 			       exit 1
 			       ;;
 	esac
@@ -45,7 +44,6 @@ function check_partition_count() {
 	local current_pt_cnt=$(parted -s /dev/${disk_name} print | awk '$1~/[1-9]+/ {print $1}' | wc -l)
 	if [ "$current_pt_cnt" != "2" ];then
     		echo "现存分区数量不为2,放弃!"
-    		disable_service
         	exit 1
 	fi
 	echo "Current partition count is valid: $current_pt_cnt"
@@ -117,35 +115,149 @@ function reset_machine_id() {
 	systemd-machine-id-setup
 }
 
-function create_netplan_config() {
-	local renderer=$1
-	shift
-	if [ "$renderer" == "networkd" ];then 
-		cat > /etc/netplan/00-default-config.yaml <<EOF
+function get_ifnames() {
+	(
+		cd /sys/class/net
+		local eths=$(ls -d eth* 2>/dev/null)
+		local ens=$(ls -d en* 2>/dev/null)
+		echo "$eths $ens"
+	)
+}
+
+function write_yml_head() {
+	local yml=$1
+	local renderer=$2
+	if [ "$renderer" == "networkd" ];then
+		cat > $yml <<EOF
 network:
   version: 2
-  renderer: networkd
+  renderer: $renderer
   ethernets:
 EOF
-		while [ "$1" != "" ];do
-			cat >> /etc/netplan/00-default-config.yaml <<EOF
-    $1:
-      dhcp4: true
-      dhcp6: true
-EOF
-			shift
-		done
-		echo 'done'
-		echo
-	elif [ "$renderer" == "NetworkManager" ];then
-		cat > /etc/netplan/00-default-config.yaml <<EOF
+	else
+		cat > $yml <<EOF
 network:
   version: 2
   renderer: NetworkManager
 EOF
-		echo 'done'
-		echo
 	fi
+}
+
+function write_yml_ifname() {
+	local yml=$1
+	local ifname=$2
+	cat >> $yml <<EOF
+    $ifname:
+EOF
+}
+
+function write_yml_dhcp() {
+	local yml=$1
+	local dhcp_switch=$2
+	cat >> $yml <<EOF
+      dhcp4: $dhcp_switch
+      dhcp6: $dhcp_switch
+EOF
+}
+
+function write_yml_ipaddr() {
+	local yml=$1
+	local ips=$2
+	cat >> $yml <<EOF
+      addresses: [$ips]
+EOF
+}
+
+function write_yml_routes() {
+	local yml=$1
+	local routes=$2
+	cat >> $yml <<EOF
+      routes:
+EOF
+	for to_via in "$routes";do
+		to=$(echo $to_via | awk -F ':' '{print $1}')
+		via=$(echo $to_via | awk -F ':' '{print $2}')
+		cat >> $yml <<EOF
+        - to: $to
+          via: $via
+EOF
+	done
+}
+
+function write_yml_dns() {
+	local yml=$1
+	local dns=$2
+	local search_domain=$3
+	cat >> $yml <<EOF
+      nameservers:
+        addresses: [$DNS]
+EOF
+	if [ "$search_domain" != "" ];then
+		cat >> $yml <<EOF
+        search: [$search_domain]
+EOF
+	fi
+}
+
+function create_netplan_config() {
+	local renderer=$1
+	local yml="/etc/netplan/00-default-config.yaml"
+	shift
+	local if_idx
+	local ips
+	local routes
+
+	write_yml_head "$yml" "$renderer"
+	# networkd
+	if [ "$renderer" == "networkd" ];then
+		if_idx=1
+		while [ "$1" != "" ];do
+			# get variables
+			case $if_idx in
+				1) ips=$IF1_IPS
+				   routes=$IF1_ROUTES
+				   ;;
+				2) ips=$IF2_IPS
+				   routes=$IF2_ROUTES
+				   ;;
+				3) ips=$IF3_IPS
+				   routes=$IF3_ROUTES
+				   ;;
+				4) ips=$IF4_IPS
+				   routes=$IF4_ROUTES
+				   ;;
+				*) ips=""
+				   routes=""
+				   ;;
+			esac # end get variables
+
+			# ip address
+			case $ips in
+				dhcp)	write_yml_ifname "$yml" "$1"
+					write_yml_dhcp "$yml" "true"
+					;;
+				  '')	echo "$1 do nothing";;
+				   *)	write_yml_ifname "$yml" "$1"
+					write_yml_dhcp "$yml" "false"
+					write_yml_ipaddr "$yml" "$ips"
+					# routes
+					if [ "$routes" != "" ];then
+						write_yml_routes "$yml" "$routes"
+					fi # end routes
+					# dns
+					if [ "$DNS" != "" ];then
+						write_yml_dns "$yml" "$DNS" "$SEARCH_DOMAIN"
+					fi
+					;;
+			esac # end ip addr
+
+			# next ifname
+			shift
+			let if_idx++
+		done
+	fi #networkd
+	echo 'done'
+	echo
 }
 
 function disable_suspend() {
@@ -229,8 +341,15 @@ function modify_user_pswd() {
 
 reset_machine_id
 reconfig_openssh_server
-if [ "$machine_hostname" != "" ];then
-    setup_hostname $machine_hostname
+if [ -f /etc/firstboot_hostname ];then
+	hostname=$(cat /etc/firstboot_hostname)
+	if [ "$hostname" != "" ];then
+		setup_hostname $hostname
+	fi
+fi
+
+if [ -f /etc/firstboot_network.conf ];then
+	source /etc/firstboot_network.conf
 fi
 
 disable_suspend
@@ -247,11 +366,24 @@ modify_user_pswd
 
 set_lightdm_default_xsession "xfce"
 
+default_ifnames=$(get_ifnames)
 if [ "$default_ifnames" != "" ];then
-    create_netplan_config "NetworkManager" $default_ifnames
-    stop_service NetworkManager.service
-    enable_service NetworkManager.service
-    start_service NetworkManager.service
+    [ -z "${NETPLAN_BACKEND}" ] && NETPLAN_BACKEND="NetworkManager"
+    create_netplan_config ${NETPLAN_BACKEND} $default_ifnames
+    case ${NETPLAN_BACKEND} in
+	    NetworkManager)	stop_service NetworkManager.service
+				stop_service systemd-networkd.service
+				disable_service systemd-networkd.service
+				enable_service NetworkManager.service
+				start_service NetworkManager.service
+				;;
+	          networkd)	stop_service NetworkManager.service
+				stop_service systemd-networkd.service
+				disable_service NetworkManager.service
+				enable_service systemd-networkd.service
+				start_service systemd-networkd.service
+				;;
+    esac
     netplan apply
 fi
 
