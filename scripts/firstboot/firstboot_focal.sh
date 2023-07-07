@@ -444,17 +444,33 @@ function config_i18n() {
 				echo "failed"
 		fi
 
-		local dstfile="/etc/timezone"
 		if [ -n "${TIMEZONE}" ];then
-			echo "Change default timezone to ${TIMEZONE}"
-			echo "${TIMEZONE}" > $dstfile && dpkg-reconfigure -f noninteractive tzdata && \
-				echo "done" || \
-				echo "failed"
+			if [ -f "/usr/share/zoneinfo/${TIMEZONE}" ];then
+				echo "Change default time zone to ${TIMEZONE}"
+				ln -sf /usr/share/zoneinfo/${TIMEZONE} /etc/localtime
+				dpkg-reconfigure -f noninteractive tzdata && echo "done" || echo "failed"
+			else
+				echo "Time zone [${TIMEZONE}] does not exists!"
+			fi
 		fi
 
 		rm -f $conf
 	fi
 	sync
+}
+
+function restart_getty() {
+	local i=1
+	while [ $i -le 12 ];do
+		local enabled=$(systemctl is-enabled getty@tty${i}.service)
+		if [ "$enabled" == "enabled" ];then
+			echo "stop getty@tty${i}.service"
+			stop_service "getty@tty${i}.service"
+			echo "start getty@tty${i}.service"
+			start_service "getty@tty${i}.service"
+		fi
+		let i++
+	done
 }
 
 function modify_user_pswd() {
@@ -488,22 +504,9 @@ function modify_user_pswd() {
 			fi
 		done
 		rm -f ${file}
+		restart_getty
 	fi
 	sync
-}
-
-function restart_getty() {
-	local i=1
-	while [ $i -le 12 ];do
-		local enabled=$(systemctl is-enabled getty@tty${i}.service)
-		if [ "$enabled" == "enabled" ];then
-			echo "stop getty@tty${i}.service"
-			stop_service "getty@tty${i}.service"
-			echo "start getty@tty${i}.service"
-			start_service "getty@tty${i}.service"
-		fi
-		let i++
-	done
 }
 
 fix_partition
@@ -522,7 +525,6 @@ clean_logs
 clean_debootstrap_dir
 
 modify_user_pswd
-restart_getty
 
 set_lightdm_default_xsession "xfce"
 enable_rknpu
