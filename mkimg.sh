@@ -33,8 +33,8 @@ source ${WORKDIR}/env/linux/${dist}.env
 source ${WORKDIR}/env/soc/${soc}.env
 source ${WORKDIR}/env/machine/${machine}.env
 
-if [ -n "$OS_RELEASE" ];then
-	os_release=$OS_RELEASE
+if [ -n "$DIST_ALIAS" ];then
+	os_release=${DIST_ALIAS}
 else
 	os_release=$dist
 fi
@@ -50,7 +50,7 @@ if [ ! -d "${WORKDIR}/build/${rootfs_source}" ];then
 	exit 1
 fi
 
-case $os_release in 
+case $OS_RELEASE in
 	bionic|focal|jammy) os_name='ubuntu';;
 	   buster|bullseys) os_name='debian';;
 	                 *) os_name='unknown';;
