@@ -77,10 +77,6 @@ function resize_filesystem() {
 	echo 
 }
 
-function setup_hostname() {
-	hostnamectl set-hostname $1
-}
-
 function enable_service() {
 	echo "disable service $1 ... "
 	systemctl enable $1
@@ -107,6 +103,16 @@ function disable_service() {
 	systemctl disable $1
 	echo "done"
 	echo
+}
+
+function setup_hostname() {
+	local conf="/etc/firstboot_hostname"
+	if [ -f $conf ];then
+		hostname=$(cat $conf)
+		if [ "$hostname" != "" ];then
+			hostnamectl set-hostname $hostname
+		fi
+	fi
 }
 
 function reset_machine_id() {
@@ -260,6 +266,34 @@ function create_netplan_config() {
 	echo
 }
 
+function config_network() {
+	local conf="/etc/firstboot_network.conf"
+	if [ -f $conf ];then
+		source $conf
+	fi
+
+	local ifnames=$(get_ifnames)
+	if [ "$ifnames" != "" ];then
+		[ -z "${NETPLAN_BACKEND}" ] && NETPLAN_BACKEND="NetworkManager"
+		create_netplan_config ${NETPLAN_BACKEND} $ifnames
+		case ${NETPLAN_BACKEND} in
+			NetworkManager)	stop_service NetworkManager.service
+					stop_service systemd-networkd.service
+					disable_service systemd-networkd.service
+					enable_service NetworkManager.service
+					start_service NetworkManager.service
+					;;
+			networkd)	stop_service NetworkManager.service
+					stop_service systemd-networkd.service
+					disable_service NetworkManager.service
+					enable_service systemd-networkd.service
+					start_service systemd-networkd.service
+					;;
+		esac
+		netplan apply
+	fi
+}
+
 function disable_suspend() {
 	systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 }
@@ -284,6 +318,12 @@ function enable_rknpu() {
 }
 
 function set_lightdm_default_xsession() {
+	local installed=$(dpkg -l lightdm | tail -n1 | awk '{print $1}')
+	if [ "$installed" != "ii" ];then
+		echo "lightdm is not installed"
+		return
+	fi
+
 	if [ "$1" == "xfce" ];then
 		cat > /usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf <<EOF
 [Seat:*]
@@ -299,9 +339,96 @@ EOF
 	start_service lightdm.service
 }
 
-function reconfig_openssh_server() {
+function reset_sshd_key() {
 	rm -f /etc/ssh/ssh_host_*key*
 	DEBIAN_FRONTEND=noninteractive dpkg-reconfigure openssh-server
+}
+
+function change_sshd_port() {
+	local port=$1
+	local conf=/etc/ssh/sshd_config
+	if [ "$port" != "" ] && [ $port -ge 1 ] && [ $port -le 65535 ];then
+		echo "Change sshd port to $port"
+		sed -e '/^Port/d' -i $conf || echo "Change $conf failed! [$port]"
+		echo "Port $port" | tee -a $conf
+		echo "done"
+	fi
+}
+
+function change_sshd_permit_root_login() {
+	local var=$1
+	local conf=/etc/ssh/sshd_config
+	if [ "$var" != "" ];then
+		case $var in
+			prohibit-password|forced-commands-only|yes|no)
+				echo "Change PermitRootLogin to $var"
+				sed -e '/^PermitRootLogin/d' -i $conf || echo "Change $conf failed! [$var]"
+				echo "PermitRootLogin ${var}" | tee -a $conf
+				echo "done"
+				;;
+			*)	echo "Illegal parameter value: $var"
+				;;
+		esac
+	fi
+}
+
+function change_sshd_ciphers() {
+	local ciphers=$1
+	local conf=/etc/ssh/sshd_config
+
+	if [ "$ciphers" != "" ];then
+		echo "Change sshd ciphers to $ciphers"
+		sed -e '/^Ciphers/d' -i $conf || echo "Change $conf failed! [$ciphers]"
+		echo "Ciphers $ciphers" | tee -a $conf
+		echo "done"
+	fi
+}
+
+function change_ssh_ciphers() {
+	local ciphers=$1
+	local conf=/etc/ssh/ssh_config
+
+	if [ "$ciphers" != "" ];then
+		echo "Change ssh ciphers to $ciphers"
+		sed -e '/^    Ciphers/d' -i $conf || echo "Change $conf failed! [$ciphers]"
+		echo "    Ciphers $ciphers" | tee -a $conf
+		echo "done"
+	fi
+}
+
+function config_openssh_server() {
+	local conf="/etc/firstboot_openssh.conf"
+	stop_service "ssh.service"
+	if [ -f $conf ];then
+		source  $conf
+		change_sshd_port "$SSHD_PORT"
+		change_sshd_permit_root_login "$SSHD_PERMIT_ROOT_LOGIN"
+		change_sshd_ciphers "$SSHD_CIPHERS"
+		change_ssh_ciphers "$SSH_CIPHERS"
+	fi
+	reset_sshd_key
+	enable_service "ssh.service"
+	start_service "ssh.service"
+}
+
+function config_i18n() {
+	local conf="/etc/firstboot_i18n.conf"
+	if [ -f $conf ];then
+		source $conf
+		if [ -n "$LANGUAGE" ];then
+			echo "Change default language to ${LANGUAGE}"
+			update-locale LANG=${LANGUAGE} && update-locale LC_ALL=${LANGUAGE} && \
+				echo "done" || \
+				echo "failed"
+		fi
+
+		if [ -n "$TIMEZONE" ];then
+			echo "Change default timezone to ${TIMEZONE}"
+			echo "${default_timezone}" > $dstfile && dpkg-reconfigure -f noninteractive tzdata && \
+				echo "done" || \
+				echo "failed"
+		fi
+	fi
 }
 
 function modify_user_pswd() {
@@ -339,56 +466,24 @@ function modify_user_pswd() {
 	fi
 }
 
-reset_machine_id
-reconfig_openssh_server
-if [ -f /etc/firstboot_hostname ];then
-	hostname=$(cat /etc/firstboot_hostname)
-	if [ "$hostname" != "" ];then
-		setup_hostname $hostname
-	fi
-fi
-
-if [ -f /etc/firstboot_network.conf ];then
-	source /etc/firstboot_network.conf
-fi
-
-disable_suspend
-
-clean_logs
-clean_debootstrap_dir
-
 fix_partition
 check_partition_count
 resize_partition
 resize_filesystem
 
+setup_hostname
+reset_machine_id
+config_network
+config_openssh_server
+config_i18n
+disable_suspend
+
+clean_logs
+clean_debootstrap_dir
+
 modify_user_pswd
 
 set_lightdm_default_xsession "xfce"
-
-default_ifnames=$(get_ifnames)
-if [ "$default_ifnames" != "" ];then
-    [ -z "${NETPLAN_BACKEND}" ] && NETPLAN_BACKEND="NetworkManager"
-    create_netplan_config ${NETPLAN_BACKEND} $default_ifnames
-    case ${NETPLAN_BACKEND} in
-	    NetworkManager)	stop_service NetworkManager.service
-				stop_service systemd-networkd.service
-				disable_service systemd-networkd.service
-				enable_service NetworkManager.service
-				start_service NetworkManager.service
-				;;
-	          networkd)	stop_service NetworkManager.service
-				stop_service systemd-networkd.service
-				disable_service NetworkManager.service
-				enable_service systemd-networkd.service
-				start_service systemd-networkd.service
-				;;
-    esac
-    netplan apply
-fi
-
-enable_service ssh.service
-start_service ssh.service
 
 enable_rknpu
 

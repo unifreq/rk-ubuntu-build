@@ -179,6 +179,22 @@ EOF
 )
 
 (
+	conf="etc/firstboot_openssh.conf"
+	touch $conf
+	echo "SSHD_PORT=$SSHD_PORT" >> $conf
+	echo "SSHD_PERMIT_ROOT_LOGIN=$SSHD_PERMIT_ROOT_LOGIN" >> $conf
+	echo "SSHD_CIPHERS=$SSHD_CIPHERS" >> $conf
+	echo "SSH_CIPHERS=$SSH_CIPHERS" >> $conf
+)
+
+(
+	conf="etc/firstboot_i18n.conf"
+	touch $conf
+	echo "LANGUAGE=$DEFAULT_LANGUAGE" >> $conf
+	echo "TIMEZONE=$DEFAULT_TIMEZONE" >> $conf
+)
+
+(
 	conf="etc/firstboot_network.conf"
 	touch $conf
 	if [ -n "${NETPLAN_BACKEND}" ];then

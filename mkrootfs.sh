@@ -111,12 +111,6 @@ cp ${SOURCES_LIST_WORK} ${output_dir}/etc/apt/sources.list
 	cp -av ${EXTEND_DEBS_HOME}/* ${output_dir}/tmp/debs/
 
 cp -v "${CHROOT}" "${output_dir}/tmp/chroot.sh"
-[ -n "${SSHD_PORT}" ] && echo "${SSHD_PORT}" > "${output_dir}/tmp/sshd_port"
-[ -n "${SSHD_PERMIT_ROOT_LOGIN}" ] && echo "${SSHD_PERMIT_ROOT_LOGIN}" > "${output_dir}/tmp/sshd_permit_root_login"
-[ -n "${SSHD_CIPHERS}" ] && echo "${SSHD_CIPHERS}" > "${output_dir}/tmp/sshd_ciphers"
-[ -n "${SSH_CIPHERS}" ] && echo "${SSH_CIPHERS}" > "${output_dir}/tmp/ssh_ciphers"
-[ -n "${DEFAULT_LANGUAGE}" ] && echo "${DEFAULT_LANGUAGE}" > "${output_dir}/tmp/language"
-[ -n "${DEFAULT_TIMEZONE}" ] && echo "${DEFAULT_TIMEZONE}" > "${output_dir}/tmp/timezone"
 
 if [ $CROSS_FLAG -eq 1 ];then
 	chroot ${output_dir} /usr/bin/qemu-aarch64-static /bin/bash /tmp/chroot.sh
