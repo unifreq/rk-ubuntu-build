@@ -26,7 +26,8 @@ echo
 echo 'Install custom packages ...'
 apt install -y netplan.io linux-firmware openssh-server xfce4 lightdm \
 	mesa-utils btrfs-progs xfsdump xfsprogs usbutils pciutils htop \
-	hdparm lm-sensors iperf3 alsa-utils qasmixer pulsemixer ethtool
+	hdparm lm-sensors iperf3 alsa-utils qasmixer pulsemixer ethtool \
+	locales-all tzdata
 apt remove -y gdm3
 dpkg-reconfigure lightdm
 echo 'done'
@@ -46,7 +47,9 @@ if [ -f "/tmp/debs/install.list" ];then
 fi
 
 echo "Change some config files ... "
-sed -e 's/managed=false/managed=true/' -i /etc/NetworkManager/NetworkManager.conf || echo "Change NetworkManager.conf failed!"
+if [ -f "/etc/NetworkManager/NetworkManager.conf" ];then
+	sed -e 's/managed=false/managed=true/' -i /etc/NetworkManager/NetworkManager.conf || echo "Change NetworkManager.conf failed!"
+fi
 echo 'done'
 echo
 

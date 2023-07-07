@@ -83,10 +83,10 @@ mkdir -p ${output_dir}/run
 mkdir -p ${output_dir}/sys
 
 if [ $CROSS_FLAG -eq 1 ];then
-	debootstrap --arch=arm64 --foreign --include=locales-all,tzdata ${os_release} ${output_dir} "$DEBOOTSTRAP_MIRROR" 
+	debootstrap --arch=arm64 --foreign ${os_release} ${output_dir} "$DEBOOTSTRAP_MIRROR" 
 	mkdir -p ${output_dir}/usr/bin && cp -fv /usr/bin/qemu-aarch64-static "${output_dir}/usr/bin/"
 else
-	debootstrap --arch=arm64 --include=locales-all,tzdata ${os_release} ${output_dir} "$DEBOOTSTRAP_MIRROR" 
+	debootstrap --arch=arm64 ${os_release} ${output_dir} "$DEBOOTSTRAP_MIRROR" 
 fi
 
 mount -o bind /dev ${output_dir}/dev
