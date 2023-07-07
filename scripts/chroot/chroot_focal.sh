@@ -47,6 +47,8 @@ if [ -f "/tmp/debs/install.list" ];then
 fi
 
 echo "Change some config files ... "
+# setup default hostname
+echo "ubuntu" > /etc/hostname
 if [ -f "/etc/NetworkManager/NetworkManager.conf" ];then
 	sed -e 's/managed=false/managed=true/' -i /etc/NetworkManager/NetworkManager.conf || echo "Change NetworkManager.conf failed!"
 fi
