@@ -112,13 +112,25 @@ function setup_hostname() {
 		if [ "$hostname" != "" ];then
 			hostnamectl set-hostname $hostname
 		fi
+		rm -f $conf
 	fi
+	sync
 }
 
 function reset_machine_id() {
-	rm -f /etc/machine-id
-	rm -rf /var/log/journal/*
-	systemd-machine-id-setup
+	local conf="/etc/firstboot_machine_id.conf"
+	if [ -f $conf ];then
+		source $conf
+		if [ "$RESET_MACHINE_ID" == "yes" ];then
+			echo "resetting machine id ... "
+			rm -f /etc/machine-id
+			rm -rf /var/log/journal/*
+			systemd-machine-id-setup
+			echo "done"
+		fi
+		rm -f $conf
+	fi
+	sync
 }
 
 function get_ifnames() {
@@ -292,6 +304,7 @@ function config_network() {
 		esac
 		netplan apply
 	fi
+	sync
 }
 
 function disable_suspend() {
@@ -340,8 +353,13 @@ EOF
 }
 
 function reset_sshd_key() {
-	rm -f /etc/ssh/ssh_host_*key*
-	DEBIAN_FRONTEND=noninteractive dpkg-reconfigure openssh-server
+	local switch=$1
+	if [ "$switch" == "yes" ];then
+		echo "Reset openssh keys ..."
+		rm -f /etc/ssh/ssh_host_*key*
+		DEBIAN_FRONTEND=noninteractive dpkg-reconfigure openssh-server
+		echo "done"
+	fi
 }
 
 function change_sshd_port() {
@@ -405,10 +423,12 @@ function config_openssh_server() {
 		change_sshd_permit_root_login "$SSHD_PERMIT_ROOT_LOGIN"
 		change_sshd_ciphers "$SSHD_CIPHERS"
 		change_ssh_ciphers "$SSH_CIPHERS"
+		reset_sshd_key "$RESET_SSH_KEYS"
+		rm -f $conf
 	fi
-	reset_sshd_key
 	enable_service "ssh.service"
 	start_service "ssh.service"
+	sync
 }
 
 function config_i18n() {
@@ -428,11 +448,14 @@ function config_i18n() {
 				echo "done" || \
 				echo "failed"
 		fi
+
+		rm -f $conf
 	fi
+	sync
 }
 
 function modify_user_pswd() {
-	local file=/etc/user_pswd
+	local file="/etc/user_pswd"
 	if [ -f ${file} ];then
 		ups=$(cat ${file})
 		for up in ${ups};do
@@ -462,8 +485,8 @@ function modify_user_pswd() {
 			fi
 		done
 		rm -f ${file}
-		sync
 	fi
+	sync
 }
 
 fix_partition

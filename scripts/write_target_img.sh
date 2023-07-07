@@ -179,8 +179,15 @@ EOF
 )
 
 (
+	conf="etc/firstboot_machine_id.conf"
+	touch $conf
+	echo "RESET_MACHINE_ID=$FIRSTBOOT_RESET_MACHINE_ID" >> $conf
+)
+
+(
 	conf="etc/firstboot_openssh.conf"
 	touch $conf
+	echo "RESET_SSH_KEYS=$FIRSTBOOT_RESET_SSH_KEYS" >> $conf
 	echo "SSHD_PORT=$SSHD_PORT" >> $conf
 	echo "SSHD_PERMIT_ROOT_LOGIN=$SSHD_PERMIT_ROOT_LOGIN" >> $conf
 	echo "SSHD_CIPHERS=$SSHD_CIPHERS" >> $conf
