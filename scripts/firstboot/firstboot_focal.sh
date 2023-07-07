@@ -444,9 +444,10 @@ function config_i18n() {
 				echo "failed"
 		fi
 
+		local dstfile="/etc/timezone"
 		if [ -n "${TIMEZONE}" ];then
 			echo "Change default timezone to ${TIMEZONE}"
-			echo "${TIMEZONE}" > $conf && dpkg-reconfigure -f noninteractive tzdata && \
+			echo "${TIMEZONE}" > $dstfile && dpkg-reconfigure -f noninteractive tzdata && \
 				echo "done" || \
 				echo "failed"
 		fi
