@@ -106,9 +106,26 @@ echo "done"
 echo "Stage 3 ..."
 cp ${SOURCES_LIST_WORK} ${output_dir}/etc/apt/sources.list
 
-[ "${EXTEND_DEBS_HOME}" != "" ] && [ -d "${EXTEND_DEBS_HOME}" ] && \
-	mkdir -p ${output_dir}/tmp/debs && \
-	cp -av ${EXTEND_DEBS_HOME}/* ${output_dir}/tmp/debs/
+env_file="${output_dir}/tmp/chroot.env"
+cat > ${env_file} <<EOF
+ENABLE_EXT_REPO="${CHROOT_ENABLE_EXT_REPO}"
+EXT_EPOS="${CHROOT_EXT_REPOS}"
+NECESSARY_PKGS="${CHROOT_NECESSARY_PKGS}"
+OPTIONAL_PKGS="${CHROOT_OPTIONAL_PKGS}"
+CUSTOM_PKGS="${CHROOT_CUSTOM_PKGS}"
+INSTALL_LOCAL_DEBS="${CHROOT_INSTALL_LOCAL_DEBS}"
+LOCAL_DEBS_HOME="/tmp/debs/"
+LOCAL_DEBS_LIST="${CHROOT_LOCAL_DEBS_LIST}"
+HAS_GRAPHICAL_DESKTOP=${CHROOT_HAS_GRAPHICAL_DESKTOP}"
+DISPLAY_MANAGER="${CHROOT_DISPLAY_MANAGER}"
+EOF
+
+if [ "${CHROOT_INSTALL_LOCAL_DEBS}" == "yes" ];then
+	if [ "${CHROOT_LOCAL_DEBS_HOME}" != "" ] && [ -d "${CHROOT_LOCAL_DEBS_HOME}" ];then
+		mkdir -p ${output_dir}/tmp/debs && \
+		cp -av ${CHROOT_LOCAL_DEBS_HOME}/* ${output_dir}/tmp/debs/
+	fi
+fi
 
 cp -v "${CHROOT}" "${output_dir}/tmp/chroot.sh"
 

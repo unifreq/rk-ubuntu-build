@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [ -f "/tmp/chroot.env" ];then
+	source "/tmp/chroot.env"
+fi
+
+export DEBIAN_FRONTEND=noninteractive
+
 mv /etc/resolv.conf /etc/resolv.conf.orig
 touch /etc/resolv.conf
 echo "nameserver 8.8.4.4" | tee -a /etc/resolv.conf
@@ -7,43 +13,59 @@ echo "nameserver 8.8.8.8" | tee -a /etc/resolv.conf
 alter_resolv=1
 
 echo 'OS upgrade ...'
-export DEBIAN_FRONTEND=noninteractive
-apt clean
-apt update
-apt upgrade -y
-echo 'done'
-echo
+apt-get clean && apt-get update && apt-get upgrade -y
+if [ $? -eq 0 ];then
+	echo 'done'
+	echo
+else
+	echo "The execution of the apt-get command failed, the task cannot continue."
+	mv /etc/resolv.conf.orig /etc/resolv.conf
+	exit 1
+fi
 
-echo 'Add kisak-mesa PPA repo ...'
-echo 'https://launchpad.net/~kisak/+archive/ubuntu/kisak-mesa'
-apt install -y software-properties-common
-# PPA repo: kisak-mesa stable
-add-apt-repository -y ppa:kisak/turtle
-apt update
-echo 'done'
-echo
+if [ "${ENABLE_EXT_REPO}" == "yes" ];then
+	echo "Add exend apt reposotorys ..."
+	apt-get install -y software-properties-common
+	for repo in "${EXT_REPOS}";do
+		echo "Add repo: $repo"
+		add-apt-repository -y "$repo"
+	done
+	apt update
+	echo "done"
+	echo
+fi
 
-echo 'Install custom packages ...'
-apt install -y netplan.io linux-firmware openssh-server xfce4 lightdm \
-	mesa-utils btrfs-progs xfsdump xfsprogs usbutils pciutils htop \
-	hdparm lm-sensors iperf3 alsa-utils qasmixer pulsemixer ethtool \
-	locales-all tzdata
-apt remove -y gdm3
-dpkg-reconfigure lightdm
-echo 'done'
-echo
+if [ "${NECESSARY_PKGS}" != "" ] || [ "${OPTIONAL_PKGS}" != "" ] || [ "${CUSTOM_PKGS}" != "" ];then
+	echo "Installing preconfigured packages ..."
+	apt-get install -y ${NECESSARY_PKGS} ${OPTIONAL_PKGS} ${CUSTOM_PKGS}
+	echo "done"
+	echo
+fi
 
-if [ -f "/tmp/debs/install.list" ];then
-	deb_list=''
-	while read line;do
-		deb_list="${deb_list} ${line}"
-	done < /tmp/debs/install.list
-	if [ "$deb_list" != "" ];then
-		echo 'Install extend packages ... '
-		(cd /tmp/debs && apt install -y ${deb_list})
-		echo 'done'
-		echo
+if [ "${INSTALL_LOCAL_DEBS}" == "yes" ];then
+	if [ -f "${LOCAL_DEBS_HOME}/${LOCAL_DEBS_LIST}" ];then
+		deb_list=""
+		while read line; do
+			deb_list="${deb_list} ${line}"
+		done < "${LOCAL_DEBS_HOME}/${LOCAL_DEBS_LIST}"
+
+		if [ "$deb_list" != "" ];then
+			echo "Installing preconfigured local packages ... "
+			( cdl ${LOCAL_DEBS_HOME} && apt install -y ${deb_list} )
+			echo "done"
+			echo
+		fi
 	fi
+fi
+
+if [ "${HAS_GRAPHICAL_DESKTOP}" == "yes" ];then
+	echo "Change default display manager to ${DISPLAY_MANAGER} ..."
+	if [ "${DISPLAY_MANAGER}" == "lightdm" ];then
+		apt remove -y gdm3 2>/dev/null
+	fi
+	dpkg-reconfigure "${DISPLAY_MANAGER}"
+	echo "done"
+	echo
 fi
 
 echo "Change some config files ... "
@@ -61,10 +83,7 @@ apt clean
 rm -rf /var/lib/apt/lists/*
 rm -rf /tmp/*
 if [ $alter_resolv -eq 1 ];then
-	rm -f /etc/resolv.conf
 	mv /etc/resolv.conf.orig /etc/resolv.conf
 fi
 echo 'done'
-echo
-
 exit 0
