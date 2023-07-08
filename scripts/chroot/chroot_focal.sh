@@ -51,7 +51,7 @@ if [ "${INSTALL_LOCAL_DEBS}" == "yes" ];then
 
 		if [ "$deb_list" != "" ];then
 			echo "Installing preconfigured local packages ... "
-			( cdl ${LOCAL_DEBS_HOME} && apt install -y ${deb_list} )
+			( cd ${LOCAL_DEBS_HOME} && apt install -y ${deb_list} )
 			echo "done"
 			echo
 		fi

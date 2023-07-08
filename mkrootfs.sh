@@ -10,11 +10,18 @@ if [ $# -lt 1 ];then
 fi
 
 dist=$1
-if [ ! -f "./env/linux/${dist}.env" ];then
-	echo "${WORKDIR}/env/linux/${dist}.env not exists!"
-	exit 1
+if [ -f "./env/linux/${dist}.env" ];then
+	source ./env/linux/${dist}.env
+else
+	echo "./env/linux/${dist}.env not exists!"
+	if [ -f "./env/linux/private/${dist}.env" ];then
+		echo "But the private environment file ${WORKDIR}/env/linux/private/${dist}.env has been found."
+		source ./env/linux/private/${dist}.env
+	else
+		echo "./env/linux/private/${dist}.env not exists!"
+		exit 1
+	fi
 fi
-source ./env/linux/${dist}.env
 
 if [ ! -x "/usr/sbin/debootstrap" ];then
 	echo "/usr/sbin/debootstrap not found, please install debootstrap!"

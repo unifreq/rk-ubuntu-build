@@ -4,7 +4,7 @@ export WORKDIR=$(dirname $(readlink -f "$0"))
 cd ${WORKDIR}
 
 if [ $# -lt 3 ];then
-	echo "Usage: $0 soc machine dist"
+	echo "Usage: $0 soc machine dist [custom]"
 	echo "Example: $0 rk3568 h68k focal"
 	exit 1
 fi
@@ -12,15 +12,42 @@ fi
 soc=$1
 machine=$2
 dist=$3
-if [ ! -f "${WORKDIR}/env/soc/${soc}.env" ];then
-	echo "The soc env file is not exists: ${WORKDIR}/env/soc/${soc}.env"
+custom=$4
+
+# check parameters
+if [ -f "./env/soc/${soc}.env" ];then
+	source ./env/soc/${soc}.env
+else
+	echo "The soc env file is not exists: ./env/soc/${soc}.env"
 	exit 1
 fi
 
-if [ ! -f "${WORKDIR}/env/machine/${machine}.env" ];then
-	echo "The machine env file is not exists: ${WORKDIR}/env/machine/${machine}.env"
+if [ -f "./env/machine/${machine}.env" ];then
+	source ./env/machine/${machine}.env
+else
+	echo "The machine env file is not exists: ./env/machine/${machine}.env"
 	exit 1
 fi
+
+if [ -f "./env/linux/${dist}.env" ];then
+	source ./env/linux/${dist}.env
+else
+	echo "The dist env file is not exists: ./env/linux/${dist}.env"
+	if [ -f "./env/linux/private/${dist}.env" ];then
+		echo "The private environment file ./env/linux/private/${dist}.env has been found."
+		source ./env/linux/private/${dist}.env
+	else
+		echo "The dist env file is not exists: ./env/linux/private/${dist}.env"
+		exit 1
+	fi
+fi
+
+# The custom env file
+# The variable values in it can override the variable values of the same name in the previous three files
+if [ -f "./env/custom/${custom}.env" ];then
+	source ./env/linux/${custom}.env
+fi
+# end of check parameters
 
 BC=$(which bc)
 if [ "$BC" == "" ];then
@@ -28,10 +55,6 @@ if [ "$BC" == "" ];then
 	echo "Example: sudo apt-get install -y bc"
 	exit 1
 fi
-
-source ${WORKDIR}/env/linux/${dist}.env
-source ${WORKDIR}/env/soc/${soc}.env
-source ${WORKDIR}/env/machine/${machine}.env
 
 if [ -n "$DIST_ALIAS" ];then
 	os_release=${DIST_ALIAS}
