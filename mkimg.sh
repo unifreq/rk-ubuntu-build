@@ -80,16 +80,20 @@ case $OS_RELEASE in
 esac
 
 if [ -n "${DEFAULT_FSTYPE}" ];then
-	rootfs_fstype=btrfs
+	case ${DEFAULT_FSTYPE} in
+		btrfs|xfs|ext4) rootfs_fstype=${DEFAULT_FSTYPE}
+				;;
+			*)	rootfs_fstype=btrfs
+	esac
 else
-	rootfs_fstype=${DEFAULT_FSTYPE}
+	rootfs_fstype=btrfs
 fi
 
 bootloader_mb=16
 if [ -n "${DEFAULT_BOOTFS_MB}" ];then
-	bootfs_mb=256
-else
 	bootfs_mb=${DEFAULT_BOOTFS_MB}
+else
+	bootfs_mb=256
 fi
 
 rootfs_source_mb=$(du -m -d1 "${WORKDIR}/build/${rootfs_source}" | tail -n1 | awk '{print $1}')
@@ -104,13 +108,14 @@ if [ "$rootfs_fstype" == "btrfs" ];then
 	target_img_mb=$(echo -e "(($rootfs_source_mb + $modules_mb) * $compress_rate + $bootloader_mb + $bootfs_mb) / 1\nquit\n" | ${BC} -q)
 else
 	# reserved size for xfs or ext4
-	reserved_mb=256
+	reserved_mb=320
 	target_img_mb=$(( $rootfs_source_mb + $modules_mb + $bootloader_mb + $bootfs_mb + $reserved_mb))
 fi
 echo "The target image size is ${target_img_mb} MB"
 
 output_img=${WORKDIR}/build/${machine_name}_${os_name}_${os_release}_v$(date +%Y%m%d).img
 echo "Create a blank disk image: $output_img ... "
+echo ./scripts/diskinit.sh "${output_img}" "${target_img_mb}" "${bootloader_mb}" "${bootfs_mb}" "${rootfs_fstype}"
 ./scripts/diskinit.sh "${output_img}" "${target_img_mb}" "${bootloader_mb}" "${bootfs_mb}" "${rootfs_fstype}"
 if [ $? -eq 0 ];then
 	echo "succeeded"
@@ -128,7 +133,8 @@ umount -f ${WORKDIR}/build/${rootfs_source}/sys 2>/dev/null
 umount -f ${WORKDIR}/build/${rootfs_source}/run 2>/dev/null
 umount -f ${WORKDIR}/build/${rootfs_source}/proc 2>/dev/null
 echo "Make the target image ... "
-scripts/write_target_img.sh "${WORKDIR}/build/${rootfs_source}" "${WORKDIR}/build/temp_root" "${output_img}" "${FIRSTBOOT}"
+echo scripts/write_target_img.sh "${WORKDIR}/build/${rootfs_source}" "${WORKDIR}/build/temp_root" "${output_img}" "${rootfs_fstype}" "${FIRSTBOOT}"
+scripts/write_target_img.sh "${WORKDIR}/build/${rootfs_source}" "${WORKDIR}/build/temp_root" "${output_img}" "${rootfs_fstype}" "${FIRSTBOOT}"
 if [ $? -eq 0 ];then
 	echo "The target image [${output_img}] has been created successfully"
 	echo

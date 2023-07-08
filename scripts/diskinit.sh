@@ -62,6 +62,11 @@ if [ -f "${bootloader}" ];then
 	echo
 fi
 
+echo "The disk partition map is:"
+echo "=================================================================="
+parted ${loopdev} unit Mib print
+echo "=================================================================="
+
 sync
 losetup -D
 sync

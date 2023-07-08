@@ -1,13 +1,14 @@
 #!/bin/bash
 
-if [ $# -lt 3 ];then
-	echo "Usage: $0 srcpath rootpath diskimg [firstboot_script]"
+if [ $# -lt 4 ];then
+	echo "Usage: $0 srcpath rootpath diskimg rootfs_fstype [firstboot_script]"
 	exit 1
 fi
 srcpath=$1
 rootpath=$2
 diskimg=$3
-firstboot=$4
+rootfs_fstype=$4
+firstboot=$5
 
 if [ ! -f ${kernel_home}/modules-${kernel_version}.tar.gz ];then
 	echo "The kernel modules archive is not exists! [${kernel_home}/modules-${kernel_version}.tar.gz]"
@@ -45,11 +46,9 @@ losetup -fP ${diskimg}
 loopdev=$(losetup | grep $diskimg | awk '{print $1}')
 echo "The loop device is ${loopdev}"
 
-if [ -z "${rootfs_format}" ];then
-	rootfs_format=btrfs
-fi
+bootloader_mb=16
 
-case ${rootfs_format} in
+case ${rootfs_fstype} in
 	btrfs) echo "mount -o compress=zstd:6 -t btrfs ${loopdev}p2 ${rootpath}"
 	       mount -o compress=zstd:6 -t btrfs ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
 	       ;;
@@ -59,7 +58,7 @@ case ${rootfs_format} in
 	  xfs) echo "mount -t xfs ${loopdev}p2 ${rootpath}"
 	       mount -t xfs ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
 	       ;;
-	    *) echo "Unsupport filesystem format: ${rootfs_format}"
+	    *) echo "Unsupport filesystem type: ${rootfs_fstype}"
 	       losetup -D
 	       exit 1
 	       ;;
@@ -135,11 +134,11 @@ cd ${rootpath}
 	fi
 )
 
-if [ "${rootfs_format}" != "btrfs" ];then
+if [ "${rootfs_fstype}" != "btrfs" ];then
 	(
 		echo "Modify bootEnv ..."
 		cd boot
-		sed -e "s/rootfstype=btrfs/rootfstype=${rootfs_format}/" -i bootEnv.txt
+		sed -e "s/rootfstype=btrfs/rootfstype=${rootfs_fstype}/" -i bootEnv.txt
 		sed -e "/rootflags=/d" -i bootEnv.txt
 		echo "rootflags=defaults" >> bootEnv.txt
 	)
@@ -148,7 +147,7 @@ fi
 (
 	echo "Create /etc/fstab ... "
 	cd etc
-	case $rootfs_format in 
+	case $rootfs_fstype in
 		btrfs) cat > fstab <<EOF
 UUID=${rootuuid}  /                      btrfs  defaults,compress=zstd:6        0  0
 UUID=${bootuuid}  /boot                  ext4   defaults                        0  0
