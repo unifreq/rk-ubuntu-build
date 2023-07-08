@@ -286,6 +286,10 @@ if [ -n "${machine_add_fs_home}" ] && [ -d "$machine_add_fs_home" ];then
 	echo
 fi
 
+echo "The disk usage map:"
+echo "==================================================================================="
+df -h
+echo "==================================================================================="
 cd ${WORKDIR}
 umount ${rootpath}/boot
 umount ${rootpath}

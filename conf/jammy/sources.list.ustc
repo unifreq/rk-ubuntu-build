@@ -1,0 +1,11 @@
+deb https://mirrors.ustc.edu.cn/ubuntu-ports/ jammy main restricted universe multiverse
+# deb-src https://mirrors.ustc.edu.cn/ubuntu-ports/ jammy main restricted universe multiverse
+
+deb https://mirrors.ustc.edu.cn/ubuntu-ports/ jammy-updates main restricted universe multiverse
+# deb-src https://mirrors.ustc.edu.cn/ubuntu-ports/ jammy-updates main restricted universe multiverse
+
+deb https://mirrors.ustc.edu.cn/ubuntu-ports/ jammy-backports main restricted universe multiverse
+# deb-src https://mirrors.ustc.edu.cn/ubuntu-ports/ jammy-backports main restricted universe multiverse
+
+deb https://mirrors.ustc.edu.cn/ubuntu-ports/ jammy-security main restricted universe multiverse
+# deb-src https://mirrors.ustc.edu.cn/ubuntu-ports/ jammy-security main restricted universe multiverse
