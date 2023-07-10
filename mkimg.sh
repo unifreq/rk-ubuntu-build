@@ -74,9 +74,9 @@ if [ ! -d "${WORKDIR}/build/${rootfs_source}" ];then
 fi
 
 case $OS_RELEASE in
-	bionic|focal|jammy) os_name='ubuntu';;
-	   buster|bullseys) os_name='debian';;
-	                 *) os_name='unknown';;
+	bionic|focal|jammy) 		os_name='ubuntu';;
+	buster|bullseys|bookworm)	os_name='debian';;
+	*)				os_name='unknown';;
 esac
 
 if [ -n "${DEFAULT_FSTYPE}" ];then
