@@ -12,6 +12,13 @@ echo "nameserver 8.8.4.4" | tee -a /etc/resolv.conf
 echo "nameserver 8.8.8.8" | tee -a /etc/resolv.conf
 alter_resolv=1
 
+# disable snapd
+cat > /etc/apt/preferences.d/no-snapd.pref << EOF
+Package: snapd
+Pin: release a=*
+Pin-Priority: -10
+EOF
+
 echo 'OS upgrade ...'
 apt-get clean && apt-get update && apt-get upgrade -y
 if [ $? -eq 0 ];then
