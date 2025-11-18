@@ -1,5 +1,5 @@
 verbosity=7
-bootlogo=true
+bootlogo=false
 fdtfile=rockchip/rk3399-zcube1-max.dtb
 rootdev=/dev/mmcblk1p2
 rootfstype=btrfs 

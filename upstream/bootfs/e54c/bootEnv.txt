@@ -1,5 +1,5 @@
 verbosity=7
-bootlogo=true
+bootlogo=false
 fdtfile=rockchip/rk3588s-radxa-e54c.dtb
 rootdev=/dev/mmcblk0p2
 rootfstype=btrfs 

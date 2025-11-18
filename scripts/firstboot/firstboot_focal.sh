@@ -702,6 +702,12 @@ if [ -f /usr/local/lib/systemd/system/mystartup.service ];then
 	fi
 fi
 
+if [ -f /boot/bootEnv.txt ];then
+	sed -e 's/bootlogo=false/bootlogo=true/' -i /boot/bootEnv.txt
+elif [ -f /boot/armbianEnv.txt ];then
+	sed -e 's/bootlogo=false/bootlogo=true/' -i /boot/armbianEnv.txt
+fi
+
 disable_service $FIRSTBOOT
 
 echo "sync ..."

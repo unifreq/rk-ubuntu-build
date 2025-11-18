@@ -1,5 +1,5 @@
 verbosity=7
-bootlogo=true
+bootlogo=false
 fdtfile=rockchip/rk3568-hlink-h69k.dtb
 rootdev=/dev/mmcblk0p2
 rootfstype=btrfs 

@@ -1,5 +1,5 @@
 verbosity=7
-bootlogo=true
+bootlogo=false
 fdtfile=rockchip/rk3588-rock-5b.dtb
 rootdev=/dev/mmcblk0p2
 rootfstype=btrfs 
