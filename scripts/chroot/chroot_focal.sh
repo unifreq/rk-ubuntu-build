@@ -12,13 +12,6 @@ echo "nameserver 8.8.4.4" | tee -a /etc/resolv.conf
 echo "nameserver 8.8.8.8" | tee -a /etc/resolv.conf
 alter_resolv=1
 
-# disable snapd
-cat > /etc/apt/preferences.d/no-snapd.pref << EOF
-Package: snapd
-Pin: release a=*
-Pin-Priority: -10
-EOF
-
 echo 'OS upgrade ...'
 apt-get clean && apt-get update && apt-get upgrade -y
 if [ $? -eq 0 ];then
@@ -77,10 +70,14 @@ fi
 
 echo "Change some config files ... "
 
-# setup default hostname
+# Get OS-RELEASE
 source /etc/os-release
+
+# setup default hostname
 hostname=${ID:-linux}
 echo "${ID}" > /etc/hostname
+
+# If debian
 if [ "$ID" == "debian" ];then
 	cat >> /etc/bash.bashrc <<EOF
 
@@ -96,6 +93,36 @@ alias l='ls \$LS_OPTIONS -lA'
 # alias cp='cp -i'
 # alias mv='mv -i'
 EOF
+fi
+
+# If ubuntu
+if [ "$ID" == "ubuntu" ];then
+	# set snapd preferences
+	cat > /etc/apt/preferences.d/no-snapd << EOF
+Package: snapd
+Pin: release a=*
+Pin-Priority: -10
+EOF
+
+	# set mozilla preferences
+	cat > /etc/apt/preferences.d/mozilla <<EOF
+Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 1000
+
+Package: firefox*
+Pin: release o=Ubuntu
+Pin-Priority: -1
+EOF
+	# Create install firefox script
+	cat > /usr/local/bin/install_firefox.sh <<EOF
+#!/bin/bash
+export DEBIAN_FRONTEND=noninteractive
+sudo add-apt-repository ppa:mozillateam/ppa
+# sed -e 's/ppa.launchpad.net/launchpad.proxy.ustclug.org/' -i /etc/apt/sources.list.d/*mozilla*
+apt update && apt install firefox
+EOF
+	chmod a+x /usr/local/bin/install_firefox.sh
 fi
 
 if [ -f "/etc/NetworkManager/NetworkManager.conf" ];then

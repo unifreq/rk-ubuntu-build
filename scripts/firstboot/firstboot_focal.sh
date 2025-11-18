@@ -576,11 +576,6 @@ function restart_getty() {
 		fi
 		let i++
 	done
-	if [ -c /dev/ttyFIQ0 ];then
-		systemctl enable getty@ttyFIQ0.service
-		systemctl stop getty@ttyFIQ0.service 2>/dev/null
-		systemctl start getty@ttyFIQ0.service
-	fi
 }
 
 function modify_user_pswd() {
