@@ -12,6 +12,19 @@ echo "nameserver 8.8.4.4" | tee -a /etc/resolv.conf
 echo "nameserver 8.8.8.8" | tee -a /etc/resolv.conf
 alter_resolv=1
 
+# Get OS-RELEASE
+source /etc/os-release
+
+# If ubuntu
+if [ "$ID" == "ubuntu" ];then
+	# set snapd preferences
+	cat > /etc/apt/preferences.d/no-snapd << EOF
+Package: snapd
+Pin: release a=*
+Pin-Priority: -10
+EOF
+fi
+
 echo 'OS upgrade ...'
 apt-get clean && apt-get update && apt-get upgrade -y
 if [ $? -eq 0 ];then
@@ -70,9 +83,6 @@ fi
 
 echo "Change some config files ... "
 
-# Get OS-RELEASE
-source /etc/os-release
-
 # setup default hostname
 hostname=${ID:-linux}
 echo "${ID}" > /etc/hostname
@@ -97,13 +107,6 @@ fi
 
 # If ubuntu
 if [ "$ID" == "ubuntu" ];then
-	# set snapd preferences
-	cat > /etc/apt/preferences.d/no-snapd << EOF
-Package: snapd
-Pin: release a=*
-Pin-Priority: -10
-EOF
-
 	# set mozilla preferences
 	cat > /etc/apt/preferences.d/mozilla <<EOF
 Package: *
