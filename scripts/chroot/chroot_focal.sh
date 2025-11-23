@@ -5,6 +5,7 @@ if [ -f "/tmp/chroot.env" ];then
 fi
 
 export DEBIAN_FRONTEND=noninteractive
+export RUNLEVEL=1
 
 mv /etc/resolv.conf /etc/resolv.conf.orig
 touch /etc/resolv.conf
@@ -148,5 +149,6 @@ rm -rf /tmp/*
 if [ $alter_resolv -eq 1 ];then
 	mv /etc/resolv.conf.orig /etc/resolv.conf
 fi
+echo -n "rm -f /usr/sbin/policy-rc.d ... " && rm -f /usr/sbin/policy-rc.d && if [ ! -f /usr/sbin/policy-rc.d ];then echo "ok"; fi
 echo 'done'
 exit 0
