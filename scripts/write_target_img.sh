@@ -121,7 +121,19 @@ cd ${rootpath}
 	ln -s vmlinuz-${kernel_version} zImage && \
 	ln -s uInitrd-${kernel_version} uInitrd && \
 	sed -e '/rootdev=/d' -i bootEnv.txt && \
+	sed -e '/rootfstype=/d' -i bootEnv.txt && \
+	sed -e '/rootflags=/d' -i bootEnv.txt && \
 	echo "rootdev=UUID=${rootuuid}" >> bootEnv.txt && \
+	echo "rootfstype=${rootfs_fstype}" >> bootEnv.txt && \
+	if [ "$rootfs_fstype" == "btrfs" ];then
+		echo "rootflags=compress=zstd:3" >> bootEnv.txt
+	else
+		echo "rootflags=defaults" >> bootEnv.txt
+	fi && \
+	echo "bootEnv.txt:" && \
+	echo "================================================================" && \
+	cat bootEnv.txt && \
+	echo "================================================================" && \
 	mkdir -p dtb-${kernel_version}/rockchip && \
 	ln -s dtb-${kernel_version} dtb && \
 	cd dtb/rockchip && \
