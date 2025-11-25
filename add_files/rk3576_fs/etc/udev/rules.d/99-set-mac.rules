@@ -1,0 +1,4 @@
+# /etc/udev/rules.d/99-set-mac.rules
+ACTION=="add", SUBSYSTEM=="net", KERNEL!="wl*", \
+DEVPATH=="*/pci*/*/net/*|*/platform/*/net/*", \
+RUN+="/bin/sh -c 'echo \"UDEV triggered for %k at $(date)\" >> /var/log/udev-debug.log; /usr/local/bin/set_mac.pl %k 2'"
