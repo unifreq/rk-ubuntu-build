@@ -23,7 +23,7 @@ if test -e ${devtype} ${devnum}:${distro_bootpart} ${prefix}bootEnv.txt; then
 	echo "The environment variable file bootEnv.txt has been located and will be loaded."
 	load ${devtype} ${devnum}:${distro_bootpart} ${load_addr} ${prefix}bootEnv.txt
 	env import -t ${load_addr} ${filesize}
-elif -e ${devtype} ${devnum}:${distro_bootpart} ${prefix}armbianEnv.txt; then
+elif test -e ${devtype} ${devnum}:${distro_bootpart} ${prefix}armbianEnv.txt; then
 	echo "The environment variable file armbianEnv.txt has been located and will be loaded."
 	load ${devtype} ${devnum}:${distro_bootpart} ${load_addr} ${prefix}armbianEnv.txt
 	env import -t ${load_addr} ${filesize}
