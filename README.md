@@ -199,7 +199,7 @@ Recommended to use an ARM64 architecture runner for compilation: `runs-on: ubunt
 
 ```yaml
 - name: Build Ubuntu
-  uses: ophub/flippy-build-actions@main
+  uses: unifreq/rk-ubuntu-build@main
   env:
     MAKE_TARGET: img
     UBUNTU_SOC: e20c_h28k
