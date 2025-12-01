@@ -1,0 +1,19 @@
+name: "Build ubuntu image and rootfs"
+author: "https://github.com/ophub/flippy-ubuntu-actions"
+description: "Ubuntu Image Builder"
+inputs:
+  mode:
+    description: "Select script."
+    required: false
+    default: "flippy"
+
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        ./make_actions.sh
+
+branding:
+  icon: "terminal"
+  color: "gray-dark"

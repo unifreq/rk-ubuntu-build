@@ -191,4 +191,23 @@ export OS_RELEASE="focal"
 export DIST_ALIAS="focal"
 ```
 
+## Actions Usage
+
+This Actions can be used by referencing it in the `.github/workflows/*.yml` cloud compilation script, for example [build-ubuntu.yml](.github/workflows/build-ubuntu.yml). The code is as follows:
+
+Recommended to use an ARM64 architecture runner for compilation: `runs-on: ubuntu-24.04-arm`
+
+```yaml
+- name: Build Ubuntu
+  uses: ophub/flippy-build-actions@main
+  env:
+    MAKE_TARGET: img
+    UBUNTU_SOC: e20c_h28k
+    ENV_LINUX_FLAVOR: noble-xfce
+    ENV_CUSTOM_BOOT: boot256-ext4root
+    KERNEL_VERSION_NAME: 6.1.y_6.12.y
+```
+
+More parameter instructions for Actions can be found in: [README.ACTIONS.md](README.ACTIONS.md)
+
 [切换到中文版](README_CN.md)
