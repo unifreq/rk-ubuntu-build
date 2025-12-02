@@ -10,7 +10,7 @@ on:
   repository_dispatch:
   workflow_dispatch:
     inputs:
-      ubuntu_soc:
+      build_machine:
         description: "Select device board."
         required: false
         default: "all"
@@ -54,13 +54,13 @@ on:
           - noble-tiny
           - noble-xfce
           - oracular-mini
-      make_target:
+      build_target:
         description: "Select build target."
         required: false
-        default: "img"
+        default: "image"
         type: choice
         options:
-          - img
+          - image
           - rootfs
       custom_boot:
         description: "Set the custom boot mode."
@@ -177,8 +177,8 @@ jobs:
         uses: unifreq/rk-ubuntu-build@main
         if: ${{ steps.opt.outputs.status }} == 'success' && !cancelled()
         env:
-          MAKE_TARGET: ${{ inputs.make_target }}
-          UBUNTU_SOC: ${{ inputs.ubuntu_soc }}
+          BUILD_TARGET: ${{ inputs.build_target }}
+          ENV_MACHINE: ${{ inputs.build_machine }}
           ENV_LINUX_FLAVOR: ${{ inputs.linux_flavor }}
           ENV_CUSTOM_BOOT: ${{ inputs.custom_boot }}
           KERNEL_REPO_URL: ${{ inputs.kernel_repo }}

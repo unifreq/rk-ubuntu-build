@@ -20,8 +20,8 @@
 - name: Build Ubuntu
   uses: unifreq/rk-ubuntu-build@main
   env:
-    MAKE_TARGET: img
-    UBUNTU_SOC: e20c_h28k
+    BUILD_TARGET: image
+    ENV_MACHINE: e20c_h28k
     ENV_LINUX_FLAVOR: noble-xfce
     ENV_CUSTOM_BOOT: boot256-ext4root
     KERNEL_VERSION_NAME: 6.1.y_6.12.y
@@ -38,8 +38,8 @@
 | KERNEL_REPO_URL        | breakingbadboy/OpenWrt | 设置内核下载仓库的 `<owner>/<repo>`，默认从 breakingbadboy 维护的[内核 Releases](https://github.com/breakingbadboy/OpenWrt/releases/tag/kernel_stable)里下载。 |
 | KERNEL_VERSION_NAME    | 6.12.y                 | 设置[主线内核版本](https://github.com/breakingbadboy/OpenWrt/releases/tag/kernel_stable)，可以查看并选择指定。可指定单个内核如 `6.1.y` ，可选择多个内核用`_`连接如 `6.1.y_6.12.y` |
 | KERNEL_AUTO_LATEST     | true                   | 设置是否自动采用同系列最新版本内核。当为 `true` 时，将自动在内核库中查找在 `KERNEL_VERSION_NAME` 中指定的内核如 `6.1.y` 的同系列是否有更新的版本，如有更新版本时，将自动更换为最新版。设置为 `false` 时将编译指定版本内核。 |
-| UBUNTU_SOC             | all                    | 设置构建设备的 `SOC` ，默认 `all` 构建全部设备，可指定单个设备如 `e20c` ，可选择多个设备用`_`连接如 `e20c_e54c` 。可选值参考：[env/machine](https://github.com/unifreq/rk-ubuntu-build/tree/main/env/machine) |
-| MAKE_TARGET            | img                    | 设置构建 img 镜像或者 rootfs 文件。可选值 `img` / `rootfs`。默认值 `img` |
+| BUILD_TARGET           | image                  | 设置构建 image 完整镜像或者 rootfs 文件。可选值 `image` / `rootfs`。默认值 `image` |
+| ENV_MACHINE            | all                    | 设置构建设备的 `SOC` ，默认 `all` 构建全部设备，可指定单个设备如 `e20c` ，可选择多个设备用`_`连接如 `e20c_e54c` 。可选值参考：[env/machine](https://github.com/unifreq/rk-ubuntu-build/tree/main/env/machine) |
 | ENV_LINUX_FLAVOR       | noble-rk-media         | 设置构建镜像或 rootfs 的 Linux 发行版风格。默认值 `noble-rk-media`，可选值参考：[env/linux](https://github.com/unifreq/rk-ubuntu-build/tree/main/env/linux) |
 | ENV_CUSTOM_BOOT        | boot256-ext4root       | 设置自定义启动模式。默认值 `boot256-ext4root`，可选值参考：[env/custom](https://github.com/unifreq/rk-ubuntu-build/tree/main/env/custom) |
 | GZIP_IMGS              | auto                   | 设置构建完毕后文件压缩的格式，可选值 `.gz`（默认） / `.xz` / `.zip` / `.zst` / `.7z` |
