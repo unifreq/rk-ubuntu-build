@@ -8,15 +8,16 @@
 #
 #======================================= Functions list =======================================
 #
-# error_msg         : Output error message
-# download_retry    : Download file with retry mechanism
-# init_var          : Initialize all variables
-# init_build_repo   : Initialize build ubuntu repository
-# query_kernel      : Query the latest kernel version
-# check_kernel      : Check kernel files integrity
-# download_kernel   : Download the kernel
-# make_ubuntu       : Loop to make Ubuntu images
-# out_github_env    : Output github.com variables
+# error_msg          : Output error message
+# download_retry     : Download file with retry mechanism
+# init_var           : Initialize all variables
+# init_build_repo    : Initialize build ubuntu repository
+# query_kernel       : Query the latest kernel version
+# check_kernel       : Check kernel files integrity
+# download_kernel    : Download the kernel
+# make_rootfs        : Make Ubuntu rootfs
+# make_image         : Make Ubuntu images
+# out_github_env     : Output github.com variables
 #
 #=============================== Set make environment variables ===============================
 
@@ -62,17 +63,14 @@ h69k-max                :rk3568            :mainline
 zcube1-max              :rk3399-ml         :mainline
 #
 "
-
 # Set the list of devices to be packaged
-MAKE_UBUNTU_LIST=($(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^[^#].*:" | cut -d: -f1))
+BUILD_UBUNTU_LIST=($(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^[^#].*:" | cut -d: -f1))
 # Set the list of devices using the [ rk3588 ] kernel
-MAKE_UBUNTU_RK3588=($(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^[^#].*:rk3588$" | cut -d: -f1))
+BUILD_UBUNTU_RK3588=($(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^[^#].*:rk3588$" | cut -d: -f1))
 # Set the list of devices using the [ rk35xx ] kernel
-MAKE_UBUNTU_RK35XX=($(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^[^#].*:rk35xx$" | cut -d: -f1))
+BUILD_UBUNTU_RK35XX=($(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^[^#].*:rk35xx$" | cut -d: -f1))
 # Set the list of devices using the [ mainline ] kernel
-MAKE_UBUNTU_MAINLINE=($(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^[^#].*:mainline$" | cut -d: -f1))
-# All are packaged by default
-UBUNTU_SOC_VALUE="all"
+BUILD_UBUNTU_MAINLINE=($(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^[^#].*:mainline$" | cut -d: -f1))
 
 # Set the default kernel download repository (kernel_stable, kernel_rk3588, kernel_rk35xx)
 # https://github.com/breakingbadboy/OpenWrt/releases
@@ -98,12 +96,18 @@ SELECT_OUTPUTPATH_VALUE="output"
 SCRIPT_MKIMG_FILE="mkimg.sh"
 SCRIPT_MKROOTFS_FILE="mkrootfs.sh"
 
-# Set the default make target
-MAKE_TARGET_VALUE="img"
+# Set the build machine name (e20c, h28k, etc. all = build all devices)
+# https://github.com/unifreq/rk-ubuntu-build/tree/main/env/machine
+ENV_MACHINE_VALUE="all"
 # Set the default Linux flavor
+# https://github.com/unifreq/rk-ubuntu-build/tree/main/env/linux
 ENV_LINUX_FLAVOR_VALUE="noble-rk-media"
 # Set the default custom boot mode
+# https://github.com/unifreq/rk-ubuntu-build/tree/main/env/custom
 ENV_CUSTOM_BOOT_VALUE="boot256-ext4root"
+# Set the default make target (image, rootfs)
+# image = build image & rootfs file; rootfs = build only the rootfs file
+BUILD_TARGET_VALUE="image"
 # Set the default image compression format(7z, xz, zip, zst, gz, auto)
 GZIP_IMGS_VALUE="auto"
 
@@ -148,11 +152,11 @@ init_var() {
     GZIP_IMGS="${GZIP_IMGS:-${GZIP_IMGS_VALUE}}"
 
     # Accept user-defined SoC and kernel parameters
-    UBUNTU_SOC="${UBUNTU_SOC:-${UBUNTU_SOC_VALUE}}"
+    ENV_MACHINE="${ENV_MACHINE:-${ENV_MACHINE_VALUE}}"
     KERNEL_REPO_URL="${KERNEL_REPO_URL:-${KERNEL_REPO_URL_VALUE}}"
     KERNEL_AUTO_LATEST="${KERNEL_AUTO_LATEST:-${KERNEL_AUTO_LATEST_VALUE}}"
 
-    MAKE_TARGET="${MAKE_TARGET:-${MAKE_TARGET_VALUE}}"
+    BUILD_TARGET="${BUILD_TARGET:-${BUILD_TARGET_VALUE}}"
     # Accept user-defined Linux flavor parameter
     ENV_LINUX_FLAVOR="${ENV_LINUX_FLAVOR:-${ENV_LINUX_FLAVOR_VALUE}}"
     ENV_LINUX_FLAVOR="${ENV_LINUX_FLAVOR/.env/}"
@@ -165,15 +169,15 @@ init_var() {
     SCRIPT_MKROOTFS="${SCRIPT_MKROOTFS:-${SCRIPT_MKROOTFS_FILE}}"
 
     # Confirm package object
-    [[ "${UBUNTU_SOC}" != "all" ]] && {
+    [[ "${ENV_MACHINE}" != "all" ]] && {
         oldIFS="${IFS}"
         IFS="_"
-        MAKE_UBUNTU_LIST=(${UBUNTU_SOC})
+        BUILD_UBUNTU_LIST=(${ENV_MACHINE})
         IFS="${oldIFS}"
     }
 
     # Remove duplicate package drivers
-    MAKE_UBUNTU_LIST=($(echo "${MAKE_UBUNTU_LIST[@]//.env/}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
+    BUILD_UBUNTU_LIST=($(echo "${BUILD_UBUNTU_LIST[@]//.env/}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
 
     # Convert kernel library address to api format
     echo -e "${INFO} Kernel download repository: [ ${KERNEL_REPO_URL} ]"
@@ -182,10 +186,10 @@ init_var() {
 
     # Reset required kernel tags
     KERNEL_TAGS_TMP=()
-    for kt in "${MAKE_UBUNTU_LIST[@]}"; do
-        if [[ " ${MAKE_UBUNTU_RK3588[@]} " =~ " ${kt} " ]]; then
+    for kt in "${BUILD_UBUNTU_LIST[@]}"; do
+        if [[ " ${BUILD_UBUNTU_RK3588[@]} " =~ " ${kt} " ]]; then
             KERNEL_TAGS_TMP+=("rk3588")
-        elif [[ " ${MAKE_UBUNTU_RK35XX[@]} " =~ " ${kt} " ]]; then
+        elif [[ " ${BUILD_UBUNTU_RK35XX[@]} " =~ " ${kt} " ]]; then
             KERNEL_TAGS_TMP+=("rk35xx")
         else
             # The stable kernel is used by default, and the flippy kernel is used with the ophub repository.
@@ -199,12 +203,12 @@ init_var() {
     # Remove duplicate kernel tags
     KERNEL_TAGS=($(echo "${KERNEL_TAGS_TMP[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
 
-    echo -e "${INFO} Make directory: [ /opt/${SELECT_PACKITPATH} ]"
-    echo -e "${INFO} Make target: [ ${MAKE_TARGET} ]"
-    echo -e "${INFO} Make devices: [ $(echo ${MAKE_UBUNTU_LIST[@]} | xargs) ]"
-    echo -e "${INFO} The RK3588 kernel devices: [ $(echo ${MAKE_UBUNTU_RK3588[@]} | xargs) ]"
-    echo -e "${INFO} The RK35XX kernel devices: [ $(echo ${MAKE_UBUNTU_RK35XX[@]} | xargs) ]"
-    echo -e "${INFO} The Mainline kernel devices: [ $(echo ${MAKE_UBUNTU_MAINLINE[@]} | xargs) ]"
+    echo -e "${INFO} Build directory: [ /opt/${SELECT_PACKITPATH} ]"
+    echo -e "${INFO} Build target: [ ${BUILD_TARGET} ]"
+    echo -e "${INFO} Build devices: [ $(echo ${BUILD_UBUNTU_LIST[@]} | xargs) ]"
+    echo -e "${INFO} The RK3588 kernel devices: [ $(echo ${BUILD_UBUNTU_RK3588[@]} | xargs) ]"
+    echo -e "${INFO} The RK35XX kernel devices: [ $(echo ${BUILD_UBUNTU_RK35XX[@]} | xargs) ]"
+    echo -e "${INFO} The Mainline kernel devices: [ $(echo ${BUILD_UBUNTU_MAINLINE[@]} | xargs) ]"
     echo -e "${INFO} Linux flavor: [ ${ENV_LINUX_FLAVOR} ]"
     echo -e "${INFO} Custom boot mode: [ ${ENV_CUSTOM_BOOT} ]"
     echo -e "${INFO} Kernel tags: [ $(echo ${KERNEL_TAGS[@]} | xargs) ]"
@@ -381,17 +385,27 @@ download_kernel() {
     done
 }
 
-make_ubuntu() {
-    echo -e "${STEPS} Start building Ubuntu..."
+make_rootfs() {
+    echo -e "${STEPS} Start building Ubuntu rootfs..."
+    cd /opt/${SELECT_PACKITPATH}
+
+    [[ -d "build/${ENV_LINUX_FLAVOR}" ]] && sudo rm -rf build/${ENV_LINUX_FLAVOR}
+    # Make the Ubuntu rootfs
+    sudo ./${SCRIPT_MKROOTFS_FILE} ${ENV_LINUX_FLAVOR}
+    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} Ubuntu rootfs building succeeded."
+}
+
+make_image() {
+    echo -e "${STEPS} Start building Ubuntu image..."
 
     i="1"
-    for ENV_MACHINE in "${MAKE_UBUNTU_LIST[@]}"; do
+    for machine_var in "${BUILD_UBUNTU_LIST[@]}"; do
         {
             # Distinguish between different Ubuntu and use different kernel
-            if [[ " ${MAKE_UBUNTU_RK3588[@]} " =~ " ${ENV_MACHINE} " ]]; then
+            if [[ " ${BUILD_UBUNTU_RK3588[@]} " =~ " ${machine_var} " ]]; then
                 build_kernel=(${RK3588_KERNEL[@]})
                 vb="rk3588"
-            elif [[ " ${MAKE_UBUNTU_RK35XX[@]} " =~ " ${ENV_MACHINE} " ]]; then
+            elif [[ " ${BUILD_UBUNTU_RK35XX[@]} " =~ " ${machine_var} " ]]; then
                 build_kernel=(${RK35XX_KERNEL[@]})
                 vb="rk35xx"
             else
@@ -417,9 +431,9 @@ make_ubuntu() {
                     cd /opt/rk-ubuntu-build/upstream/kernel
 
                     # Copy the kernel to the building directory
-                    kernel_dir="$(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^${ENV_MACHINE}:.*" | cut -d: -f3)"
-                    [[ -z "${kernel_dir}" ]] && error_msg "Failed to get the kernel directory for [ ${ENV_MACHINE} ]."
-                    echo -e "${INFO} Use kernel directory: [ ${kernel_dir} ] for [ ${ENV_MACHINE} ]"
+                    kernel_dir="$(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^${machine_var}:.*" | cut -d: -f3)"
+                    [[ -z "${kernel_dir}" ]] && error_msg "Failed to get the kernel directory for [ ${machine_var} ]."
+                    echo -e "${INFO} Use kernel directory: [ ${kernel_dir} ] for [ ${machine_var} ]"
 
                     # Copy the kernel files to the kernel directory
                     rm -f ${kernel_dir}/*
@@ -428,23 +442,18 @@ make_ubuntu() {
                     # Get the kernel version from the boot file
                     boot_kernel_file="$(basename $(ls ${kernel_dir}/boot-${kernel_var}* 2>/dev/null | head -n 1))"
                     KERNEL_VERSION="${boot_kernel_file:5:-7}"
-                    [[ -z "${KERNEL_VERSION}" ]] && error_msg "Failed to get the kernel version for [ ${ENV_MACHINE} - ${vb} - ${kernel_var} ]."
-                    echo -e "${STEPS} (${i}.${k}) Start building Ubuntu: [ ${ENV_MACHINE} ], Kernel directory: [ ${vb} ], Kernel version: [ ${KERNEL_VERSION} ]"
+                    [[ -z "${KERNEL_VERSION}" ]] && error_msg "Failed to get the kernel version for [ ${machine_var} - ${vb} - ${kernel_var} ]."
+                    echo -e "${STEPS} (${i}.${k}) Start building Ubuntu: [ ${machine_var} ], Kernel directory: [ ${vb} ], Kernel version: [ ${KERNEL_VERSION} ]"
 
                     cd /opt/${SELECT_PACKITPATH}
 
                     # Modify the kernel version in the environment configuration file
-                    ENV_SOC="$(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^${ENV_MACHINE}:.*" | cut -d: -f2)"
-                    [[ -z "${ENV_SOC}" ]] && error_msg "Failed to get the environment file for [ ${ENV_MACHINE} ]."
+                    ENV_SOC="$(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^${machine_var}:.*" | cut -d: -f2)"
+                    [[ -z "${ENV_SOC}" ]] && error_msg "Failed to get the environment file for [ ${machine_var} ]."
                     sed -i "s|^export kernel_version=.*|export kernel_version=${KERNEL_VERSION}|g" env/soc/${ENV_SOC}.env
 
-                    # Make the Ubuntu rootfs
-                    [[ -d "build/${ENV_LINUX_FLAVOR}" ]] || sudo ./${SCRIPT_MKROOTFS_FILE} ${ENV_LINUX_FLAVOR}
-                    # Make the Ubuntu image
-                    if [[ "${MAKE_TARGET}" == "img" ]]; then
-                        # sudo /mkimg.sh <soc> <machine> <linux-flavor> [custom]
-                        sudo ./${SCRIPT_MKIMG_FILE} ${ENV_SOC/.env/} ${ENV_MACHINE} ${ENV_LINUX_FLAVOR} ${ENV_CUSTOM_BOOT}
-                    fi
+                    # sudo /mkimg.sh <soc> <machine> <linux-flavor> [custom]
+                    sudo ./${SCRIPT_MKIMG_FILE} ${ENV_SOC/.env/} ${machine_var} ${ENV_LINUX_FLAVOR} ${ENV_CUSTOM_BOOT}
 
                     # Generate compressed file
                     img_num="$(ls ${BUILD_TMP_DIR}/*.img 2>/dev/null | wc -l)"
@@ -463,7 +472,7 @@ make_ubuntu() {
                         sudo mv -f *.{7z,xz,zip,zst,gz} -t ${OUTPUT_DIR} 2>/dev/null || true
                     }
 
-                    echo -e "${SUCCESS} (${i}.${k}) Ubuntu building succeeded: [ ${ENV_MACHINE} - ${vb} - ${kernel_var} ] \n"
+                    echo -e "${SUCCESS} (${i}.${k}) Ubuntu building succeeded: [ ${machine_var} - ${vb} - ${kernel_var} ] \n"
                     sync
 
                     ((k++))
@@ -503,20 +512,28 @@ out_github_env() {
 }
 # Show welcome message
 echo -e "${STEPS} Welcome to use the Ubuntu building tool! \n"
+echo -e "${INFO} Server space usage before starting to build:\n$(df -hT /opt) \n"
 
 # Start initializing variables
 init_var
 init_build_repo
 
-# Show server start information
-echo -e "${INFO} Server space usage before starting to build:\n$(df -hT /opt/${SELECT_PACKITPATH}) \n"
+# Make the Ubuntu rootfs
+make_rootfs
 
-# Packit Ubuntu
-[[ "${KERNEL_AUTO_LATEST,,}" =~ ^(true|yes)$ ]] && query_kernel
-download_kernel
-make_ubuntu
+# Make the Ubuntu process
+[[ "${BUILD_TARGET}" == "image" ]] && {
+    # Query the latest kernel version if enabled
+    [[ "${KERNEL_AUTO_LATEST,,}" =~ ^(true|yes)$ ]] && query_kernel
+    # Download the kernel files
+    download_kernel
+    # Make the Ubuntu image
+    make_image
+}
+
+# Output the github.com environment variables
 out_github_env
 
 # Show server end information
-echo -e "${INFO} Server space usage after building:\n$(df -hT /opt/${SELECT_PACKITPATH}) \n"
+echo -e "${INFO} Server space usage after building:\n$(df -hT /opt) \n"
 echo -e "${SUCCESS} The building process has been completed. \n"
