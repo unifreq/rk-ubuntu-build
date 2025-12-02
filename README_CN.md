@@ -194,7 +194,7 @@ export DIST_ALIAS="focal"
 
 ## Actions 使用说明
 
-在 `.github/workflows/*.yml` 云编译脚本中引入此 Actions 即可使用，例如 [build-ubuntu.yml](.github/workflows/build-ubuntu.yml)。代码如下：
+在 `.github/workflows/*.yml` 云编译脚本中引入此 Actions 即可使用，例如 [build-ubuntu.yml](.github/workflows/build-ubuntu.yml)。更多 Actions 使用参数说明请参考：[README.ACTIONS.md](README.ACTIONS.md)。
 
 推荐使用 ARM64 架构的 runner 进行编译：`runs-on: ubuntu-24.04-arm`
 
@@ -202,13 +202,12 @@ export DIST_ALIAS="focal"
 - name: Build Ubuntu
   uses: unifreq/rk-ubuntu-build@main
   env:
-    MAKE_TARGET: img
-    UBUNTU_SOC: e20c_h28k
+    BUILD_TARGET: image
+    ENV_MACHINE: e20c_h28k
     ENV_LINUX_FLAVOR: noble-xfce
     ENV_CUSTOM_BOOT: boot256-ext4root
     KERNEL_VERSION_NAME: 6.1.y_6.12.y
 ```
 
-更多 Actions 使用参数说明请参考：[README.ACTIONS.md](README.ACTIONS.md)
 
 [Switch to English](README.md)
