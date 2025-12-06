@@ -102,8 +102,14 @@ cd ${rootpath}
 
 (
 	echo "Extract kernel headers ... "
-	mkdir -p usr/src/linux-5.10.y-rk35xx && \
-		cd usr/src/linux-5.10.y-rk35xx && \
+	if [ -L lib/modules/${kernel_version}/source ];then
+	    linux_src_dir=$(readlink lib/modules/${kernel_version}/source)
+	    linux_src_dir=${linux_src_dir#/}
+	else
+	    linux_src_dir="usr/src/linux"
+	fi
+	mkdir -p ${linux_src_dir} && \
+		cd ${linux_src_dir} && \
 		tar xf ${kernel_home}/header-${kernel_version}.tar.gz
 	if [ $? -eq 0 ];then
 		echo "done"
