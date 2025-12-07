@@ -50,13 +50,13 @@ bootloader_mb=16
 
 case ${rootfs_fstype} in
 	btrfs) echo "mount -o compress=zstd:3 -t btrfs ${loopdev}p2 ${rootpath}"
-	       mount -o compress=zstd:3 -t btrfs ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
+	       mount -o compress=zstd:3 -t btrfs ${loopdev}p2 ${rootpath} || { losetup -D; exit 1; }
 	       ;;
 	 ext4) echo "mount -t ext4 ${loopdev}p2 ${rootpath}"
-	       mount -t ext4 ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
+	       mount -t ext4 ${loopdev}p2 ${rootpath} || { losetup -D; exit 1; }
 	       ;;
 	  xfs) echo "mount -t xfs ${loopdev}p2 ${rootpath}"
-	       mount -t xfs ${loopdev}p2 ${rootpath} || (losetup -D; exit 1)
+	       mount -t xfs ${loopdev}p2 ${rootpath} || { losetup -D; exit 1; }
 	       ;;
 	    *) echo "Unsupport filesystem type: ${rootfs_fstype}"
 	       losetup -D
@@ -66,7 +66,7 @@ esac
 
 mkdir -p ${rootpath}/boot
 echo "mount -t ext4 ${loopdev}p1 ${rootpath}/boot"
-mount -t ext4 ${loopdev}p1 ${rootpath}/boot || (umount -f ${rootpath} ; losetup -D; exit 1)
+mount -t ext4 ${loopdev}p1 ${rootpath}/boot || { umount -f ${rootpath} ; losetup -D; exit 1; }
 
 function exit_on_failue() {
 	umount -f ${rootpath}/boot
@@ -78,7 +78,7 @@ function exit_on_failue() {
 cd ${rootpath}
 (
 	echo "Extract rootfs ... "
-	(cd ${srcpath} && tar --exclude 'debootstrap' -cf - .) | tar xf -
+	(cd ${srcpath} && tar --exclude 'debootstrap' --exclude 'stage1-ok' --exclude 'stage2-ok' -cf - .) | tar xf -
 	if [ $? -eq 0 ];then
 		echo "done"
 	else
