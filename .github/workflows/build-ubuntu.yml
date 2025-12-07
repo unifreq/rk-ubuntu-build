@@ -38,14 +38,12 @@ on:
         default: "noble-rk-media"
         type: choice
         options:
+          - trixie-mini
           - bookworm-mini
           - bookworm-python
           - bookworm-rk-media
           - bullseye-mini
-          - focal-mini
-          - focal
-          - jammy-mini
-          - jammy-xfce
+          - oracular-mini
           - noble-mini-stress
           - noble-mini
           - noble-python
@@ -53,7 +51,10 @@ on:
           - noble-rk-media
           - noble-tiny
           - noble-xfce
-          - oracular-mini
+          - jammy-mini
+          - jammy-xfce
+          - focal-mini
+          - focal
       build_target:
         description: "Select build target."
         required: false
