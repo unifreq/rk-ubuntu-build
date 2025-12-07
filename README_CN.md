@@ -25,27 +25,8 @@ sudo apt update && sudo apt install -y \
 ```
 
 ### debootstrap 安装
-建议从源码构建以支持最新发行版：
 
-```bash
-# 安装编译依赖
-sudo apt install -y git make
-
-# 克隆仓库
-git clone https://git.launchpad.net/ubuntu/+source/debootstrap
-cd debootstrap
-
-# 编译安装
-sudo make install
-
-# 验证安装
-debootstrap --version
-```
-
-ℹ️ **包管理器安装** (不推荐用于新发行版):
-```bash
-sudo apt install debootstrap
-```
+已强制采用本地debootstrap源码安装，来自https://git.launchpad.net/ubuntu/+source/debootstrap
 
 ### 文件系统工具
 镜像创建所需软件包：

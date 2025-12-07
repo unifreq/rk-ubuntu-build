@@ -24,27 +24,8 @@ sudo apt update && sudo apt install -y \
     curl
 ```
 ### debootstrap Installation
-We recommend building from source for latest features:
 
-```bash
-# Install build dependencies
-sudo apt install -y git make
-
-# Clone repository
-git clone https://git.launchpad.net/ubuntu/+source/debootstrap
-cd debootstrap
-
-# Build and install
-sudo make install
-
-# Verify installation
-debootstrap --version
-```
-
-ℹ️ **Package Manager Alternative** (Not recommended for new distros):
-```bash
-sudo apt install debootstrap
-```
+It has been forced to install from the local debootstrap source code, from https://git.launchpad.net/ubuntu/+source/debootstrap
 
 ### Filesystem Tools
 Required packages for image creation:
