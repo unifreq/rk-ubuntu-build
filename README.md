@@ -25,7 +25,7 @@ sudo apt update && sudo apt install -y \
 ```
 ### debootstrap Installation
 
-It has been forced to install from the local debootstrap source code, from https://git.launchpad.net/ubuntu/+source/debootstrap
+It has been forced to install from the local debootstrap source code, from https://git.launchpad.net/ubuntu/+source/debootstrap or https://launchpad.net/ubuntu/+source/debootstrap .
 
 ### Filesystem Tools
 Required packages for image creation:

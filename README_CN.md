@@ -26,7 +26,7 @@ sudo apt update && sudo apt install -y \
 
 ### debootstrap 安装
 
-已强制采用本地debootstrap源码安装，来自https://git.launchpad.net/ubuntu/+source/debootstrap
+已强制采用本地debootstrap源码安装，来自https://git.launchpad.net/ubuntu/+source/debootstrap 或 https://launchpad.net/ubuntu/+source/debootstrap 。
 
 ### 文件系统工具
 镜像创建所需软件包：
