@@ -23,10 +23,26 @@ else
 	fi
 fi
 
-if [ ! -x "/usr/sbin/debootstrap" ];then
-	echo "/usr/sbin/debootstrap not found, please install debootstrap!"
-	echo "example: sudo apt install debootstrap"
+# install debootstrap
+if [ -f ${WORKDIR}/src/debootstrap.tar.gz ];then
+	(
+		echo "========================================================"
+		echo "Install bootstrap ..."
+		cd /tmp && \
+			tar xf ${WORKDIR}/src/debootstrap.tar.gz && \
+			cd /tmp/debootstrap && \
+			make install
+	)
+fi
+
+if [ ! -x /usr/sbin/debootstrap ];then
+	echo "debootstrap is not exists, please install it first!"
 	exit 1
+else
+	echo "The deboostrap version is:"
+	/usr/sbin/debootstrap --version
+	echo "========================================================"
+	echo
 fi
 
 host_arch=$(uname -m)
@@ -59,6 +75,37 @@ else
 	output_dir=build/${dist}
 fi
 
+param=$2
+if [ "$param" == "clean" ];then
+    rm -rf ${output_dir}
+    echo "${output_dir} cleaned"
+    exit 0
+fi
+
+function ask_force_pass() {
+    local stage_name="$1"
+    local ok_file="$2"
+
+    # 检查是否在交互式环境中
+    if [ -t 0 ] && [ -t 1 ]; then
+        # 交互式：提示用户
+        read -p "Stage ${stage_name} failed. Force mark as passed? (y/N): " -r reply
+        case "$reply" in
+            [yY])
+                touch "$ok_file"
+                echo "Forced stage ${stage_name} to pass."
+                return 0
+                ;;
+        esac
+    else
+        # 非交互式（如 GitHub Actions）：自动拒绝
+        echo "Non-interactive environment detected. Cannot force pass stage ${stage_name}."
+    fi
+
+    # 默认行为：不强制跳过
+    return 1
+}
+
 function bind() {
 	cd ${WORKDIR}
 	mount -o bind /dev ${output_dir}/dev
@@ -74,14 +121,14 @@ function unbind() {
 	cd ${WORKDIR}
 	i=0
 	while [ $i -le 5 ];do
-		umount -f ${output_dir}/dev/pts 2>/dev/null || break
+		umount -l ${output_dir}/dev/pts 2>/dev/null || break
 		sleep 1
 		i=$((i++))
 	done
 
 	i=0
 	while [ $i -le 5 ];do
-		umount -f ${output_dir}/dev/pts 2>/dev/null || break
+		umount -l ${output_dir}/dev/pts 2>/dev/null || break
 		sleep 1
 		i=$((i++))
 	done
@@ -89,28 +136,28 @@ function unbind() {
 	i=0
 	i=0
 	while [ $i -le 5 ];do
-		umount -f ${output_dir}/dev 2>/dev/null || break
+		umount -l ${output_dir}/dev 2>/dev/null || break
 		sleep 1
 		i=$((i++))
 	done
 
 	i=0
 	while [ $i -le 5 ];do
-		umount -f ${output_dir}/proc 2>/dev/null || break
+		umount -l ${output_dir}/proc 2>/dev/null || break
 		sleep 1
 		i=$((i++))
 	done
 
 	i=0
 	while [ $i -le 5 ];do
-		umount -f ${output_dir}/sys 2>/dev/null || break
+		umount -l ${output_dir}/sys 2>/dev/null || break
 		sleep 1
 		i=$((i++))
 	done
 
 	i=0
 	while [ $i -le 5 ];do
-		umount -f ${output_dir}/run 2>/dev/null || break
+		umount -l ${output_dir}/run 2>/dev/null || break
 		sleep 1
 		i=$((i++))
 	done
@@ -122,35 +169,65 @@ function on_trap() {
 }
 trap "on_trap" 2 3 15
 
-param=$2
-if [ "$param" == "clean" ];then
-    rm -rf ${output_dir}
-    echo "${output_dir} cleaned"
-    exit 0
+# first stage
+echo "Stage 1 ..."
+if [ -f "${output_dir}/stage1-ok" ];then
+	echo "Stage 1 has been skipped."
+else
+	if [ $CROSS_FLAG -eq 1 ];then
+		/usr/sbin/debootstrap --arch=arm64 --foreign ${os_release} ${output_dir} "$DEBOOTSTRAP_MIRROR"
+		ret=$?
+	else
+		/usr/sbin/debootstrap --arch=arm64 ${os_release} ${output_dir} "$DEBOOTSTRAP_MIRROR"
+		ret=$?
+	fi
+
+	if [ $ret -ne 0 ]; then
+		echo "Stage 1 failed! Exit code: $ret"
+		if ask_force_pass "1" "${output_dir}/stage1-ok"; then
+			if [ $CROSS_FLAG -eq 1 ];then
+				mkdir -p ${output_dir}/usr/bin && cp -fv /usr/bin/qemu-aarch64-static "${output_dir}/usr/bin/"
+			fi
+		else
+			exit 1
+		fi
+	else
+		touch "${output_dir}/stage1-ok"
+	fi
+	echo "Stage 1 pass"
 fi
 
-echo "Stage 1 ..."
-# first stage
 mkdir -p ${output_dir}
 mkdir -p ${output_dir}/dev
+mkdir -p ${output_dir}/dev/pts
 mkdir -p ${output_dir}/proc
 mkdir -p ${output_dir}/run
 mkdir -p ${output_dir}/sys
 bind
 
-if [ $CROSS_FLAG -eq 1 ];then
-	debootstrap --arch=arm64 --foreign ${os_release} ${output_dir} "$DEBOOTSTRAP_MIRROR" 
-	mkdir -p ${output_dir}/usr/bin && cp -fv /usr/bin/qemu-aarch64-static "${output_dir}/usr/bin/"
-else
-	debootstrap --arch=arm64 ${os_release} ${output_dir} "$DEBOOTSTRAP_MIRROR" 
-fi
-
 # second stage
-echo "Stage 2 ..."
-if [ $CROSS_FLAG -eq 1 ];then
-	chroot "${output_dir}" debootstrap/debootstrap --second-stage
+echo "Stage 2 ... "
+
+if [ $CROSS_FLAG -eq 0 ];then
+	echo "Stage 2 is not required in the native environment and has been skipped."
+else
+	if [ -f "${output_dir}/stage2-ok" ];then
+		echo "Stage2 has been skipped."
+	else
+		chroot "${output_dir}" debootstrap/debootstrap --second-stage
+		ret=$?
+
+		if [ $ret -ne 0 ]; then
+			echo "Stage 2 failed! Exit code: $ret"
+			if ! ask_force_pass "2" "${output_dir}/stage2-ok"; then
+				exit 1
+			fi
+		else
+			touch "${output_dir}/stage2-ok"
+		fi
+		echo "Stage 2 pass"
+	fi
 fi
-echo "done"
 
 # third stage
 echo "Stage 3 ..."
@@ -193,9 +270,11 @@ else
 fi
 
 if [ $CROSS_FLAG -eq 1 ];then
-	chroot ${output_dir} /usr/bin/qemu-aarch64-static /bin/bash /tmp/chroot.sh
+	chroot ${output_dir} /usr/bin/qemu-aarch64-static /bin/bash /tmp/chroot.sh || \
+		{ echo "Stage 3 failed!"; unbind; exit 1; }
 else
-	chroot ${output_dir} /bin/bash /tmp/chroot.sh
+	chroot ${output_dir} /bin/bash /tmp/chroot.sh || \
+		{ echo "Stage 3 failed!"; unbind; exit 1; }
 fi
 
 echo "umount ... "
