@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export WORKDIR=$(dirname $(readlink -f "$0"))
-cd ${WORKDIR}
+cd ${WORKDIR} && mkdir -p build
 
 if [ $# -lt 1 ];then
 	echo "Usage: $0 dist [clean]"
