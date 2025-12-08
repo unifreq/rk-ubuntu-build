@@ -232,6 +232,9 @@ fi
 
 # third stage
 echo "Stage 3 ..."
+if [ $CROSS_FLAG -eq 1 ];then
+	mkdir -p ${output_dir}/usr/bin && cp -fv /usr/bin/qemu-aarch64-static "${output_dir}/usr/bin/"
+fi
 # 阻止服务启动
 cat > ${output_dir}/usr/sbin/policy-rc.d <<'EOF'
 #!/bin/sh
