@@ -43,7 +43,6 @@ on:
           - bookworm-python
           - bookworm-rk-media
           - bullseye-mini
-          - oracular-mini
           - noble-mini-stress
           - noble-mini
           - noble-python
@@ -55,6 +54,7 @@ on:
           - jammy-xfce
           - focal-mini
           - focal
+          - questing-mini
       build_target:
         description: "Select build target."
         required: false
