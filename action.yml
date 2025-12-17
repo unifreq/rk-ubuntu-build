@@ -12,7 +12,7 @@ runs:
   steps:
     - shell: bash
       run: |
-        cd ${{ github.action_path }}
+        cd "${GITHUB_ACTION_PATH}"
         ./make_actions.sh
 
 branding:
