@@ -12,6 +12,7 @@ runs:
   steps:
     - shell: bash
       run: |
+        cd "${GITHUB_ACTION_PATH}"
         ./make_actions.sh
 
 branding:
