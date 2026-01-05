@@ -429,13 +429,15 @@ function clean_debootstrap_dir() {
 }
 
 function enable_rknpu() {
-	if [ -f "/usr/local/lib/systemd/system/rknn.service" ] && modinfo rknpu 2>/dev/null;then
+	if [ -f "/sys/kernel/debug/rknpu/version" ] ;then
 		echo rknpu > /etc/modules-load.d/rknpu.conf
 		echo "alias rknpu rknpu" > /etc/modprobe.d/rknpu.conf
 		modprobe rknpu
 		ldconfig
-		systemctl enable rknn.service
-		systemctl start rknn.service
+	        if [ -f "/usr/lib/systemd/system/rknn.service" ] ;then
+			systemctl enable rknn.service
+			systemctl start rknn.service
+		fi
 	fi
 }
 
@@ -673,7 +675,7 @@ clean_logs
 clean_debootstrap_dir
 
 set_lightdm_default_xsession "xfce"
-#enable_rknpu
+enable_rknpu
 
 if [ -f /usr/lib/systemd/system/ssd1306.service ];then
 	enable_service ssd1306.service
