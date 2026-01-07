@@ -58,6 +58,9 @@ case ${rootfs_fstype} in
 	  xfs) echo "mount -t xfs ${loopdev}p2 ${rootpath}"
 	       mount -t xfs ${loopdev}p2 ${rootpath} || { losetup -D; exit 1; }
 	       ;;
+	 f2fs) echo "mount -t f2fs ${loopdev}p2 ${rootpath}"
+	       mount -t f2fs ${loopdev}p2 ${rootpath} || { losetup -D; exit 1; }
+	       ;;
 	    *) echo "Unsupport filesystem type: ${rootfs_fstype}"
 	       losetup -D
 	       exit 1
@@ -178,6 +181,11 @@ EOF
 		       ;;
 		  xfs) cat > fstab <<EOF
 UUID=${rootuuid}  /                      xfs    defaults                        0  0
+UUID=${bootuuid}  /boot                  ext4   defaults                        0  0
+EOF
+		       ;;
+		 f2fs) cat > fstab <<EOF
+UUID=${rootuuid}  /                      f2fs   defaults                        0  0
 UUID=${bootuuid}  /boot                  ext4   defaults                        0  0
 EOF
 		       ;;

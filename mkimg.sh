@@ -84,9 +84,10 @@ esac
 
 if [ -n "${DEFAULT_FSTYPE}" ];then
 	case ${DEFAULT_FSTYPE} in
-		btrfs|xfs|ext4) rootfs_fstype=${DEFAULT_FSTYPE}
-				;;
-			*)	rootfs_fstype=btrfs
+		btrfs|xfs|ext4|f2fs) rootfs_fstype=${DEFAULT_FSTYPE}
+				     ;;
+				  *) rootfs_fstype=btrfs
+				     ;;
 	esac
 else
 	rootfs_fstype=btrfs

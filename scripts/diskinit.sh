@@ -48,6 +48,9 @@ case $rootfs_format in
 	  xfs) echo "mkfs.xfs -m uuid=$rootuuid -L "root" ${loopdev}p2"
 	       mkfs.xfs -m uuid=$rootuuid -L "root" ${loopdev}p2 || (losetup -D; exit 1)
 	       ;;
+	 f2fs) echo "mkfs.f2fs -U $rootuuid -l "root" ${loopdev}p2"
+	       mkfs.f2fs -U $rootuuid -l "root" ${loopdev}p2 || (losetup -D; exit 1)
+	       ;;
 	    *) echo "Unknown filesystem format: $rootfs_format"
 	       losetup -D
 	       exit 1
