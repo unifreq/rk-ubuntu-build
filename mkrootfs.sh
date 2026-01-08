@@ -32,6 +32,7 @@ if [ -f ${WORKDIR}/src/debootstrap.tar.gz ];then
 			tar xf ${WORKDIR}/src/debootstrap.tar.gz && \
 			cd /tmp/debootstrap && \
 			make install && \
+			cd /tmp && \
 			rm -rf /tmp/debootstrap
 	)
 fi
