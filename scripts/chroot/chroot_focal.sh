@@ -121,10 +121,31 @@ EOF
 	# Create install firefox script
 	cat > /usr/local/bin/install_firefox.sh <<EOF
 #!/bin/bash
-export DEBIAN_FRONTEND=noninteractive
-sudo add-apt-repository ppa:mozillateam/ppa
-# sed -e 's/ppa.launchpad.net/launchpad.proxy.ustclug.org/' -i /etc/apt/sources.list.d/*mozilla*
-apt update && apt install firefox
+
+sudo systemctl stop var-snap-firefox-common-host\\x2dhunspell.mount
+sudo systemctl disable var-snap-firefox-common-host\\x2dhunspell.mount
+sudo snap disable firefox
+sudo snap remove --purge firefox
+
+sudo cat > /etc/apt/preferences.d/firefox-no-snap << EEOF
+Package: firefox*
+Pin: release o=Ubuntu*
+Pin-Priority: -1
+EEOF
+
+sudo install -d -m 0755 /etc/apt/keyrings
+wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null
+sudo gpg -n -q --import --import-options import-show /etc/apt/keyrings/packages.mozilla.org.asc | awk '/pub/{getline; gsub(/^ +| +$/,""); if(\$0 == "35BAA0B33E9EB396F59CA838C0BA5CE6DC6315A3") print "\\nThe key fingerprint matches ("\$0").\\n"; else print "\\nVerification failed: the fingerprint ("\$0") does not match the expected one.\\n"}'
+echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | sudo tee -a /etc/apt/sources.list.d/mozilla.list > /dev/null
+
+sudo cat > /etc/apt/preferences.d/mozilla << EEOF
+Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 1000
+EEOF
+
+sudo apt-get update && sudo apt-get install firefox
+mkdir -p ~/.mozilla/firefox/ && cp -a ~/snap/firefox/common/.mozilla/firefox/* ~/.mozilla/firefox/
 EOF
 	chmod a+x /usr/local/bin/install_firefox.sh
 fi
