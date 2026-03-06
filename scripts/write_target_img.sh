@@ -335,25 +335,117 @@ cd ${WORKDIR}
 umount ${rootpath}/boot
 umount ${rootpath}
 
-echo "Write bootloader ... "
-if [ -d "${btld_bin}" ];then
-	if [ -f "${btld_bin}/idbloader.img" ] && [ -f "${btld_bin}/u-boot.itb" ];then
-		echo "dd if=${btld_bin}/idbloader.img of=${loopdev} conv=fsync,notrunc bs=512 seek=64"
-		dd if=${btld_bin}/idbloader.img of=${loopdev} conv=fsync,notrunc bs=512 seek=64
-		echo "dd if=${btld_bin}/u-boot.itb of=${loopdev} conv=fsync,notrunc bs=512 seek=16384"
-		dd if=${btld_bin}/u-boot.itb of=${loopdev} conv=fsync,notrunc bs=512 seek=16384
-	fi
-elif [ -f "${btld_bin}" ];then
-	echo "dd if=${btld_bin} of=${loopdev} bs=512 skip=64 seek=64"
-	dd if=${btld_bin} of=${loopdev} bs=512 skip=64 seek=64
-else
-	echo "Can't found any bootloader!"
-	sync
-	losetup -D
-	exit 1
-fi
-echo "done"
+# 清理函数
+function cleanup() {
+    sync
+    losetup -D
+    exit "${1:-0}"
+}
 
-sync
-losetup -D
-exit 0
+# 写入 rockchip bootloader 到块设备
+# 参数：$1 - loopdev 设备路径
+# 环境变量：btld_bin, BL_SELECT
+function write_rockchip_bootloader() {
+    local loopdev="$1"
+    local file1 file2 input_skip output_skip1 output_skip2
+    local bs=512
+
+    # 32 KB
+    output_skip1=64
+    # 8 MB
+    output_skip2=16384
+
+    # 确定文件组合和输入跳过参数
+    if [ -d "${btld_bin}" ]; then
+        case "${BL_SELECT:-auto}" in
+            auto)
+                if [ -f "${btld_bin}/idblock.img" ] && [ -f "${btld_bin}/uboot.img" ]; then
+                    file1="${btld_bin}/idblock.img"
+                    file2="${btld_bin}/uboot.img"
+                    input_skip=0
+                elif [ -f "${btld_bin}/idbloader.img" ] && [ -f "${btld_bin}/u-boot.itb" ]; then
+                    file1="${btld_bin}/idbloader.img"
+                    file2="${btld_bin}/u-boot.itb"
+                    input_skip=0
+                elif [ -f "${btld_bin}/u-boot-rockchip.bin" ]; then
+                    file1="${btld_bin}/u-boot-rockchip.bin"
+                    file2=""
+                    input_skip=0
+                elif [ -f "${btld_bin}/bootloader.bin" ]; then
+                    file1="${btld_bin}/bootloader.bin"
+                    file2=""
+		    # 跳过前 32 KB（传统格式）
+                    input_skip=64
+                else
+                    echo "Error: No valid bootloader files found in ${btld_bin}."
+                    cleanup 1
+                fi
+                ;;
+            1)
+                file1="${btld_bin}/idblock.img"
+                file2="${btld_bin}/uboot.img"
+                input_skip=0
+                ;;
+            2)
+                file1="${btld_bin}/idbloader.img"
+                file2="${btld_bin}/u-boot.itb"
+                input_skip=0
+                ;;
+            3)
+                file1="${btld_bin}/u-boot-rockchip.bin"
+                file2=""
+                input_skip=0
+                ;;
+            4)
+                file1="${btld_bin}/bootloader.bin"
+                file2=""
+                input_skip=64
+                ;;
+            *)
+                echo "Error: Unsupported BL_SELECT value '${BL_SELECT}'."
+                cleanup 1
+                ;;
+        esac
+    else
+	# btld_bin 是单个文件(通过 dd 从原始固件复制的16MB镜像)
+        file1="${btld_bin}"
+        file2=""
+        input_skip=64
+    fi
+
+    # 验证文件存在
+    if [ ! -f "${file1}" ]; then
+        echo "Error: Bootloader file1 '${file1}' not found."
+        cleanup 1
+    fi
+    if [ -n "${file2}" ] && [ ! -f "${file2}" ]; then
+        echo "Error: Bootloader file2 '${file2}' not found."
+        cleanup 1
+    fi
+
+    # 写入第一阶段
+    echo "Writing ${file1} to ${loopdev} at offset $((output_skip1 * bs)) bytes (skip input $((input_skip * bs)) bytes)..."
+    dd if="${file1}" of="${loopdev}" conv=fsync,notrunc bs="${bs}" seek="${output_skip1}" skip="${input_skip}" status=progress
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to write ${file1}."
+        cleanup 1
+    fi
+
+    # 写入第二阶段（如果存在）
+    if [ -n "${file2}" ]; then
+        echo "Writing ${file2} to ${loopdev} at offset $((output_skip2 * bs)) bytes..."
+        dd if="${file2}" of="${loopdev}" conv=fsync,notrunc bs="${bs}" seek="${output_skip2}" status=progress
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to write ${file2}."
+            cleanup 1
+        fi
+    fi
+
+    echo "Bootloader write completed successfully."
+    echo
+}
+
+echo "Writing bootloader ... "
+write_rockchip_bootloader "${loopdev}"
+
+cleanup 0
