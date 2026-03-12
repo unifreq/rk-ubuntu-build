@@ -344,12 +344,12 @@ function create_ifupdown_config() {
 
 		# ip address
 		case $ips in
-			dhcp)	echo "auto $1" >> ${ifs_home}/$1
+			dhcp)	echo "allow-hotplug $1" >> ${ifs_home}/$1
 				echo "iface $1 inet dhcp" >> ${ifs_home}/$1
 				;;
 			  '')	echo "iface $1 inet manual" >> ${ifs_home}/$1
 				;;
-			   *)	echo "auto $1" >> ${ifs_home}/$1
+			   *)	echo "allow-hotplug $1" >> ${ifs_home}/$1
 				echo "iface $1 inet static" >> ${ifs_home}/$1
 				# address
 				echo "  address $ips" >> ${ifs_home}/$1
