@@ -47,6 +47,7 @@ ht2                     :rk3528            :rk35xx
 #-----------------------+------------------+---------------------
 ht3                     :rk3528            :rk35xx
 yixun-rs6pro            :rk3528            :rk35xx
+tl3562-minievm          :rk3562-k61        :rk35xx
 netfusion               :rk3566-k61        :rk35xx
 
 
@@ -104,7 +105,7 @@ ENV_MACHINE_VALUE="all"
 ENV_LINUX_FLAVOR_VALUE="noble-rk-media"
 # Set the default custom boot mode
 # https://github.com/unifreq/rk-ubuntu-build/tree/main/env/custom
-ENV_CUSTOM_BOOT_VALUE="boot256-ext4root"
+ENV_CUSTOM_BOOT_VALUE="boot384-ext4root"
 # Set the default make target (image, rootfs)
 # image = build image & rootfs file; rootfs = build only the rootfs file
 BUILD_TARGET_VALUE="image"
