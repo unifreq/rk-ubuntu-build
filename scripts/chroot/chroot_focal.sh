@@ -72,6 +72,15 @@ if [ "${INSTALL_LOCAL_DEBS}" == "yes" ];then
 	fi
 fi
 
+locales_all_installed=$(dpkg -l locales-all | tail -n1 | awk '{print $1}')
+if [ "$locales_all_installed" == "un" ];then
+	echo "gen locales ... "
+	sed -e 's/# en_US.UTF-8/en_US.UTF-8/' -i /etc/locale.gen
+	sed -e 's/# zh_CN.UTF-8/zh_CN.UTF-8/' -i /etc/locale.gen
+	locale-gen
+	update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
+fi
+
 if [ "${HAS_GRAPHICAL_DESKTOP}" == "yes" ];then
 	echo "Change default display manager to ${DISPLAY_MANAGER} ..."
 	if [ "${DISPLAY_MANAGER}" == "lightdm" ];then
