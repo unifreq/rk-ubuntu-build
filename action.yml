@@ -1,9 +1,9 @@
-name: "Build ubuntu image and rootfs"
+name: "Build Ubuntu image and rootfs for Rockchip devices"
 author: "https://github.com/ophub/flippy-ubuntu-actions"
-description: "Ubuntu Image Builder"
+description: "Build Ubuntu/Debian system images and rootfs for Rockchip series devices."
 inputs:
   mode:
-    description: "Select script."
+    description: "Select the build script to use."
     required: false
     default: "flippy"
 

@@ -1,5 +1,5 @@
 #==========================================================================
-# Description: Build Ubuntu image and rootfs
+# Description: Build Ubuntu/Debian image and rootfs for Rockchip devices
 # Copyright (C) 2025 https://github.com/unifreq/rk-ubuntu-build
 # Copyright (C) 2025 https://github.com/ophub/flippy-ubuntu-actions
 #==========================================================================
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       build_machine:
-        description: "Select device board."
+        description: "Select the target device board."
         required: false
         default: "all"
         type: choice
@@ -29,11 +29,12 @@ on:
           - ht3
           - netfusion
           - rock-5b
+          - tl3562-minievm
           - yixun-rs6pro
           - zcube1-max
           - all
       linux_flavor:
-        description: "Set the Linux flavor."
+        description: "Set the Linux distribution flavor."
         required: false
         default: "noble-rk-media"
         type: choice
@@ -56,7 +57,7 @@ on:
           - focal
           - questing-mini
       build_target:
-        description: "Select build target."
+        description: "Select the build output type."
         required: false
         default: "image"
         type: choice
@@ -64,9 +65,9 @@ on:
           - image
           - rootfs
       custom_boot:
-        description: "Set the custom boot mode."
+        description: "Set the partition size and type."
         required: false
-        default: "boot256-ext4root"
+        default: "boot384-ext4root"
         type: choice
         options:
           - boot256-ext4root
@@ -78,7 +79,7 @@ on:
           - boot640-ext4root
           - boot640-xfsroot
       kernel_repo:
-        description: "Set the kernel repository."
+        description: "Set the kernel download repository."
         required: false
         default: "ophub/kernel"
         type: choice
@@ -86,7 +87,7 @@ on:
           - breakingbadboy/OpenWrt
           - ophub/kernel
       ubuntu_kernel:
-        description: "Select mainline kernel"
+        description: "Select the kernel version."
         required: false
         default: "6.12.y"
         type: choice
@@ -100,7 +101,7 @@ on:
           - 6.1.y_6.12.y
           - 6.1.y_6.18.y
       build_storage:
-        description: "Select storage type."
+        description: "Select release storage type."
         required: false
         default: "save"
         type: choice
@@ -121,7 +122,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Initialization environment
+      - name: Initialize build environment
         id: init
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -147,7 +148,7 @@ jobs:
           timedatectl status || true
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Create simulated physical disk
+      - name: Create LVM virtual disk
         id: disk
         run: |
           mnt_size=$(expr $(df -h /mnt | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 1)
@@ -166,7 +167,7 @@ jobs:
           sudo chown -R runner:runner /builder
           df -Th
 
-      - name: Mount builder directory
+      - name: Set up builder directory
         id: opt
         working-directory: /builder
         run: |
