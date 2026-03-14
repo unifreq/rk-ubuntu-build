@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       build_machine:
-        description: "Select the target device board for building."
+        description: "Select the target device board."
         required: false
         default: "all"
         type: choice
@@ -57,7 +57,7 @@ on:
           - focal
           - questing-mini
       build_target:
-        description: "Select the build output type (image or rootfs)."
+        description: "Select the build output type."
         required: false
         default: "image"
         type: choice
@@ -65,7 +65,7 @@ on:
           - image
           - rootfs
       custom_boot:
-        description: "Set the boot partition size and root filesystem type."
+        description: "Set the partition size and type."
         required: false
         default: "boot384-ext4root"
         type: choice
@@ -87,7 +87,7 @@ on:
           - breakingbadboy/OpenWrt
           - ophub/kernel
       ubuntu_kernel:
-        description: "Select the mainline kernel version to use."
+        description: "Select the kernel version."
         required: false
         default: "6.12.y"
         type: choice
@@ -101,7 +101,7 @@ on:
           - 6.1.y_6.12.y
           - 6.1.y_6.18.y
       build_storage:
-        description: "Select release storage type (save: permanent / temp: temporary)."
+        description: "Select release storage type."
         required: false
         default: "save"
         type: choice
