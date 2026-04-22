@@ -699,6 +699,13 @@ if [ -f /usr/local/lib/systemd/system/mystartup.service ];then
 	fi
 fi
 
+if [ -f /etc/firstboot_enable_services.conf ];then
+	IFS=$'\n'
+	while read -r service;do
+		enable_service $service
+	done < /etc/firstboot_enable_services.conf
+fi
+
 if [ -f /boot/bootEnv.txt ];then
 	sed -e 's/bootlogo=false/bootlogo=true/' -i /boot/bootEnv.txt
 elif [ -f /boot/armbianEnv.txt ];then
