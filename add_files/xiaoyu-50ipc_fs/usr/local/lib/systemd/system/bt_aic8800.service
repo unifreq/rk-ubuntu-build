@@ -1,0 +1,13 @@
+[Unit]
+Description=Bluetooth AIC8800
+After=local-fs.target network.target
+Before=bluetooth.service
+
+[Service]
+Type=forking
+ExecStartPre=/usr/sbin/rfkill unblock all
+ExecStart=/usr/bin/hciattach -s 1500000 /dev/ttyS2 any 1500000 flow nosleep
+ExecStartPost=/bin/bash -c 'sleep 1;/usr/sbin/rfkill unblock 2; /usr/bin/hciconfig hci0 up'
+
+[Install]
+WantedBy=multi-user.target

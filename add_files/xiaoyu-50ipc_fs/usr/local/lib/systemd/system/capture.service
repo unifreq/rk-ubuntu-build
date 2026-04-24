@@ -1,0 +1,15 @@
+[Unit]
+Description=Camera Capture and Stream to MediaMTX
+After=rkaiq_server.service mediamtx.service
+Requires=rkaiq_server.service mediamtx.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/capture.sh
+Restart=always
+RestartSec=5
+WorkingDirectory=/usr/local/bin
+
+[Install]
+WantedBy=multi-user.target
