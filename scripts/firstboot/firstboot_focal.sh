@@ -699,6 +699,13 @@ if [ -f /usr/local/lib/systemd/system/mystartup.service ];then
 	fi
 fi
 
+if [ -f /etc/firstboot_disable_services.conf ];then
+	IFS=$'\n'
+	while read -r service;do
+		disable_service $service
+	done < /etc/firstboot_disable_services.conf
+fi
+
 if [ -f /etc/firstboot_enable_services.conf ];then
 	IFS=$'\n'
 	while read -r service;do
