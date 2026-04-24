@@ -1,0 +1,14 @@
+[Unit]
+Description=Rockchip AIQ 3A Server
+After=network.target local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/rkaiq_3A_server
+Restart=on-failure
+RestartSec=2
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
