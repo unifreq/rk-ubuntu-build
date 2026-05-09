@@ -174,6 +174,11 @@ echo
 echo 'Clean ... '
 apt autoremove -y
 apt clean
+# Clear systemd-osc-context, as some terminal emulators (such as SecureCRT) do not currently support it well.
+[ -f /etc/profile.d/80-systemd-osc-context.sh ] && cat > /etc/profile.d/99-unset-systemd-osc-context.sh <<EOF
+unset PS0
+unset PROMPT_COMMAND
+EOF
 rm -rf /var/lib/apt/lists/*
 rm -rf /tmp/*
 if [ $alter_resolv -eq 1 ];then
