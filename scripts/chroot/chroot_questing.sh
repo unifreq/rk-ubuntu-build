@@ -1,1 +1,0 @@
-chroot_focal.sh

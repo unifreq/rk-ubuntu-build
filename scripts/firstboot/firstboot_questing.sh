@@ -1,1 +1,0 @@
-firstboot_focal.sh
