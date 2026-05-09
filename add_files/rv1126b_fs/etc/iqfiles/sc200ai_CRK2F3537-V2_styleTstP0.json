@@ -182,8 +182,8 @@
 									"sw_aeT_whiteDelay_val":	2
 								},
 								"frmRate":	{
-									"sw_aeT_frmRate_mode":	"ae_frmRate_auto_mode",
-									"sw_aeT_frmRate_val":	0
+									"sw_aeT_frmRate_mode":	"ae_frmRate_fix_mode",
+									"sw_aeT_frmRate_val":	10
 								},
 								"antiFlicker":	{
 									"sw_aeT_antiFlicker_en":	1,
@@ -8340,7 +8340,7 @@
 						},
 						"bayertnr":	{
 							"opMode":	"RK_AIQ_OP_MODE_AUTO",
-							"en":	0,
+							"en":	1,
 							"bypass":	0,
 							"stAuto":	{
 								"sta":	{
@@ -30681,7 +30681,7 @@
 						},
 						"bayertnr":	{
 							"opMode":	"RK_AIQ_OP_MODE_AUTO",
-							"en":	0,
+							"en":	1,
 							"bypass":	0,
 							"stAuto":	{
 								"sta":	{

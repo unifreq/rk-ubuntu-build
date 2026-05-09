@@ -8598,7 +8598,7 @@
 						},
 						"bayertnr":	{
 							"opMode":	"RK_AIQ_OP_MODE_AUTO",
-							"en":	0,
+							"en":	1,
 							"bypass":	0,
 							"stAuto":	{
 								"sta":	{
@@ -31721,7 +31721,7 @@
 						},
 						"bayertnr":	{
 							"opMode":	"RK_AIQ_OP_MODE_AUTO",
-							"en":	0,
+							"en":	1,
 							"bypass":	0,
 							"stAuto":	{
 								"sta":	{
@@ -54901,7 +54901,7 @@
 						},
 						"bayertnr":	{
 							"opMode":	"RK_AIQ_OP_MODE_AUTO",
-							"en":	0,
+							"en":	1,
 							"bypass":	0,
 							"stAuto":	{
 								"sta":	{
