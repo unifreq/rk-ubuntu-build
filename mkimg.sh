@@ -116,6 +116,10 @@ else
 	reserved_mb=1536
 	target_img_mb=$(( $rootfs_source_mb + $modules_mb + $bootloader_mb + $bootfs_mb + $reserved_mb))
 fi
+
+if [ -n "${FIXED_TARGET_MB_SIZE}" ];then
+	target_img_mb=${FIXED_TARGET_MB_SIZE}
+fi
 echo "The target image size is ${target_img_mb} MB"
 
 output_img=${WORKDIR}/build/${soc}_${machine_name}_${os_name}_${os_release}_v$(date +%Y%m%d).img
