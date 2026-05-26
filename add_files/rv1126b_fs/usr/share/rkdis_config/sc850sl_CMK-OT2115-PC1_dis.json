@@ -1,0 +1,30 @@
+{
+	"version": "1.0.0",
+	"AlgoParams": {
+		"src_format": 1,
+		"dst_format": 2,
+		"src_width": 3840,
+		"src_height": 2160,
+		"dst_width": 3840,
+		"dst_height": 2160,
+		"frame_rate": 30.0,
+
+		"fifo_num": 0,
+		"crop_ratio": 0.1,
+		"affinity_mask": 6,
+
+		"lens_mode": 1,
+		"src_fx": 1055.35156,
+		"src_fy": 1051.54065,
+		"src_cx": 944.78729,
+		"src_cy": 572.12195,
+		"src_ldc": {
+			"k1": -5.94682135e-02,
+			"k2": -2.41034608e-02,
+			"p1": 1.47078466e-02,
+			"p2": -6.27873745e-03,
+			"k3": 0.0,
+			"xi": 0.0
+		}
+	}
+}
