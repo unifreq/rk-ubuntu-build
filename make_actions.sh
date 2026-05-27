@@ -31,8 +31,8 @@ CONFIG_MAP="
 #-----------------------+------------------+---------------------
 # /env/machine/{*}.env  :/env/soc/{*}.env  :/upstream/kernel/{*}
 #-----------------------+------------------+---------------------
-h88k                    :rk3588            :rk3588
-rock-5b                 :rk3588            :rk3588
+h88k                    :rk3588-k61        :rk3588
+rock-5b                 :rk3588-k61        :rk3588
 
 
 # RK35XX kernel devices
@@ -40,13 +40,18 @@ rock-5b                 :rk3588            :rk3588
 # /env/machine/{*}.env  :/env/soc/{*}.env  :/upstream/kernel/{*}
 #-----------------------+------------------+---------------------
 100ask-dshanpi-a1       :rk3576-k61        :rk35xx
-e20c                    :rk3528            :rk35xx
-h28k                    :rk3528            :rk35xx
-h29k                    :rk3528            :rk35xx
-ht2                     :rk3528            :rk35xx
+e20c                    :rk3528-k61        :rk35xx
+h28k                    :rk3528-k61        :rk35xx
+h29k                    :rk3528-k61        :rk35xx
+h66k                    :rk3566-k61        :rk35xx
 #-----------------------+------------------+---------------------
-ht3                     :rk3528            :rk35xx
-yixun-rs6pro            :rk3528            :rk35xx
+h68k                    :rk3566-k61        :rk35xx
+h69k                    :rk3566-k61        :rk35xx
+h69k-max                :rk3566-k61        :rk35xx
+ht2                     :rk3528-k61        :rk35xx
+ht3                     :rk3528-k61        :rk35xx
+#-----------------------+------------------+---------------------
+yixun-rs6pro            :rk3528-k61        :rk35xx
 tl3562-minievm          :rk3562-k61        :rk35xx
 netfusion               :rk3566-k61        :rk35xx
 
@@ -56,11 +61,6 @@ netfusion               :rk3566-k61        :rk35xx
 # /env/machine/{*}.env  :/env/soc/{*}.env  :/upstream/kernel/{*}
 #-----------------------+------------------+---------------------
 e54c                    :rk3588s-ml        :mainline
-h66k                    :rk3568            :mainline
-h68k                    :rk3568            :mainline
-h69k                    :rk3568            :mainline
-h69k-max                :rk3568            :mainline
-#-----------------------+------------------+---------------------
 zcube1-max              :rk3399-ml         :mainline
 #
 "
