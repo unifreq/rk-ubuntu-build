@@ -1,6 +1,6 @@
 verbosity=7
 bootlogo=false
-fdtfile=rockchip/rv1126b-xiaoyu-50ipc.dtb
+fdtfile=rockchip/rv1126b-xiaoyu-50ipc-dual-cam.dtb
 rootdev=/dev/mmcblk0p2
 rootfstype=xfs
 rootflags=defaults
