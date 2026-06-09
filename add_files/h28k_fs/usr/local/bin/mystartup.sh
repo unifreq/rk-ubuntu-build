@@ -14,6 +14,6 @@
 ################################################################################
 # This is a test entry
 
-[ -x /usr/local/bin/run_ext_scr.sh ] && /usr/local/bin/run_ext_scr.sh
+[ -x /usr/local/bin/run_ext_scr.sh ] && /usr/local/bin/run_ext_scr.sh iot_install.sh >> /var/log/mystartup.log
 
 echo `date +%F" "%T` "Startup worked" >> /var/log/mystartup.log

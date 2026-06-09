@@ -7,12 +7,25 @@
 #   2. 文件系统为 fat32/exfat/ntfs
 #   3. 脚本名必须以 .sh 结尾（安全限制）
 #   4. 挂载到 /mnt 后若存在目标脚本，先进行语法检查，通过后才执行
+#   5. 脚本结束时自动卸载 /mnt（若已挂载）
+#   6. 挂载类型: fat32 -> vfat, exfat -> exfat, ntfs -> ntfs3
 #
 
 set -euo pipefail
 
-LOG_TAG="ext-storage-script-run"
+LOG_TAG="ext-storage-install"
+MOUNT_POINT="/mnt"
 
+# ---------- 清理函数（退出时自动卸载 /mnt） ----------
+cleanup() {
+    if mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') 卸载 $MOUNT_POINT" >&2
+        umount "$MOUNT_POINT" || echo "$(date '+%Y-%m-%d %H:%M:%S') 卸载 $MOUNT_POINT 失败" >&2
+    fi
+}
+trap cleanup EXIT
+
+# ---------- 日志函数 ----------
 log() {
     logger -t "$LOG_TAG" "$*"
     echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >&2
@@ -109,7 +122,6 @@ fi
 log "候选外部设备: ${CANDIDATES[*]}"
 
 # 3. 遍历设备，挂载并查找目标脚本
-MOUNT_POINT="/mnt"
 mkdir -p "$MOUNT_POINT"
 
 SUCCESS=0
@@ -129,15 +141,23 @@ for dev in "${CANDIDATES[@]}"; do
         umount "$MOUNT_POINT" || { log "  卸载失败，跳过此设备"; continue; }
     fi
 
-    # 挂载
+    # 获取文件系统类型并进行映射（fat32->vfat, ntfs->ntfs3）
     if command -v blkid >/dev/null 2>&1; then
         FS_TYPE=$(blkid -s TYPE -o value "$MOUNT_SOURCE" 2>/dev/null || echo "auto")
     else
         FS_TYPE="auto"
     fi
 
-    log "  挂载 $MOUNT_SOURCE (类型: $FS_TYPE) 到 $MOUNT_POINT"
-    if ! mount -t "$FS_TYPE" -o defaults,noatime "$MOUNT_SOURCE" "$MOUNT_POINT"; then
+    # 根据要求调整挂载类型
+    case "$FS_TYPE" in
+        vfat)     MOUNT_TYPE="vfat" ;;
+        exfat)    MOUNT_TYPE="exfat" ;;
+        ntfs)     MOUNT_TYPE="ntfs3" ;;   # 使用内核 ntfs3 驱动
+        *)        MOUNT_TYPE="auto" ;;
+    esac
+
+    log "  挂载 $MOUNT_SOURCE (类型: $FS_TYPE -> 挂载参数: -t $MOUNT_TYPE) 到 $MOUNT_POINT"
+    if ! mount -t "$MOUNT_TYPE" -o defaults,noatime "$MOUNT_SOURCE" "$MOUNT_POINT"; then
         log "  挂载失败，跳过此设备"
         continue
     fi
