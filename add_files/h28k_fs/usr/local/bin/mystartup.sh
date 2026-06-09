@@ -14,6 +14,6 @@
 ################################################################################
 # This is a test entry
 
-echo performance >/sys/devices/system/cpu/cpufreq/policy0/scaling_governor 
+[ -x /usr/local/bin/run_ext_scr.sh ] && /usr/local/bin/run_ext_scr.sh
 
 echo `date +%F" "%T` "Startup worked" >> /var/log/mystartup.log
