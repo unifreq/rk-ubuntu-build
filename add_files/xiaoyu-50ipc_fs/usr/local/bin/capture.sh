@@ -117,7 +117,7 @@ gst-launch-1.0 -e \
     video. ! \
         queue leaky=downstream max-size-buffers=10 ! \
         videoscale ! video/x-raw,width=800,height=480 ! \
-        videoflip method=counterclockwise ! \
+        videoflip video-direction=90l ! \
         kmssink sync=false \
     ${audio_pipe} \
     rtspclientsink name=mux location=rtsp://localhost:8554/live/0 protocols=tcp
