@@ -107,11 +107,11 @@ echo performance > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
 ) &
 gst-launch-1.0 -e \
     v4l2src device=${DEVICE} do-timestamp=true io-mode=4 ! \
-        video/x-raw,format=NV12,width=2560,height=1440,framerate=30/1 ! \
+        video/x-raw,format=NV12,framerate=30/1 ! \
     tee name=video \
     video. ! \
         queue leaky=downstream max-size-buffers=10 ! \
-        mpph264enc gop=30 rc-mode=vbr bps-min=2000000 bps=4000000 bps-max=8000000 ! \
+        mpph264enc gop=30 rc-mode=vbr ! \
         h264parse config-interval=-1 ! \
         mux. \
     video. ! \
