@@ -105,9 +105,18 @@ echo performance > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
 	sleep 30
 	echo ${current_governor} > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
 ) &
+
+# 强行启动rkaiq_server.service
+systemctl status rkaiq_server.service > /dev/null 2>&1
+if [ $? -ne 0 ];then
+	systemctl start rkaiq_server.service
+	sleep 2
+fi
+
+# 启动gst-launch
 gst-launch-1.0 -e \
     v4l2src device=${DEVICE} do-timestamp=true io-mode=4 ! \
-        video/x-raw,format=NV12,framerate=30/1 ! \
+        video/x-raw,format=NV12,framerate=30/1,width=1600,height=960 ! \
     tee name=video \
     video. ! \
         queue leaky=downstream max-size-buffers=10 ! \
