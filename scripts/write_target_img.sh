@@ -122,13 +122,21 @@ cd ${rootpath}
 	fi
 )
 
-(	
+(
 	echo "Extrace kernel image ... "
 	cd boot && \
-	cp -a ${boot_src_home}/* . && \
-	tar xf ${kernel_home}/boot-${kernel_version}.tar.gz && \
+	# Extract to temp dir first, then copy in order to ensure contiguous allocation
+	_tmp=$(mktemp -d /tmp/boot_extract_XXXXXX) && \
+	tar xf ${kernel_home}/boot-${kernel_version}.tar.gz -C "$_tmp" && \
+	_list=$(cd $_tmp && ls -S)
+	# Move Lager kernel Image FIRST while FS is empty → contiguous ext4 allocation
+	for _f in $_list; do
+		cp -a "$_tmp/$_f" .
+	done || true && \
+	rm -rf "$_tmp" && \
 	ln -s vmlinuz-${kernel_version} zImage && \
 	ln -s uInitrd-${kernel_version} uInitrd && \
+	cp -a ${boot_src_home}/* . && \
 	sed -e '/rootdev=/d' -i bootEnv.txt && \
 	sed -e '/rootfstype=/d' -i bootEnv.txt && \
 	sed -e '/rootflags=/d' -i bootEnv.txt && \
