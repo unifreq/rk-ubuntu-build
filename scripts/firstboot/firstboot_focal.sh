@@ -139,6 +139,8 @@ function setup_hostname() {
 		fi
 		echo -n "setup hostname to $hostname ... "
 		hostnamectl set-hostname $hostname
+		sed -e "/^127\.0\.0\.1[[:space:]]\+localhost$/s/localhost$/localhost $hostname/" -i /etc/hosts
+
 		echo $hostname > "${conf}.final"
 		echo "done"
 	else
