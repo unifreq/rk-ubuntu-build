@@ -80,8 +80,53 @@ if [ ! -c "$DEVICE" ]; then
     exit 1
 fi
 
-ffmpeg \
-  -f v4l2 -input_format nv12 -video_size 1920x1080 -pix_fmt nv12 -i ${DEVICE} \
-  -vf "fps=30" \
-  -c:v h264_rkmpp -g 30 \
-  -f rtsp -rtsp_transport tcp rtsp://localhost:8554/live/0
+export GST_MPP_VIDEODEC_DEFAULT_ARM_AFBC=1
+export GST_MPP_VIDEODEC_DEFAULT_FORMAT=NV12
+export GST_V4L2_PREFERRED_FOURCC=NV12:YU12:NV16:YUY2
+export GST_VIDEO_CONVERT_PREFERRED_FORMAT=NV12:NV16:I420:YUY2
+export GST_VIDEO_CONVERT_USE_RGA=1
+export GST_VIDEO_FLIP_USE_RGA=1
+
+audio=0
+
+if [ $audio -eq 1 ];then
+	audio_pipe="alsasrc device=hw:0,0 provide-clock=false ! \
+audio/x-raw,format=S16LE,rate=16000,channels=2 ! queue max-size-buffers=100 ! \
+audioconvert ! voaacenc bitrate=64000 ! aacparse ! mux. "
+else
+	audio_pipe=""
+fi
+
+# 启动 pipeline
+# 设置cpu为高性能模式
+current_governor=$(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor)
+echo performance > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+(
+	sleep 30
+	echo ${current_governor} > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+) &
+
+# 强行启动rkaiq_server.service
+systemctl status rkaiq_server.service > /dev/null 2>&1
+if [ $? -ne 0 ];then
+	systemctl start rkaiq_server.service
+	sleep 2
+fi
+
+# 启动gst-launch
+gst-launch-1.0 -e \
+    v4l2src device=${DEVICE} do-timestamp=true io-mode=4 ! \
+        video/x-raw,format=NV12,framerate=30/1,width=1600,height=960 ! \
+    tee name=video \
+    video. ! \
+        queue leaky=downstream max-size-buffers=10 ! \
+        mpph264enc gop=30 rc-mode=vbr ! \
+        h264parse config-interval=-1 ! \
+        mux. \
+    video. ! \
+        queue leaky=downstream max-size-buffers=10 ! \
+        videoscale ! video/x-raw,width=800,height=480 ! \
+        videoflip video-direction=90l ! \
+        kmssink sync=false \
+    ${audio_pipe} \
+    rtspclientsink name=mux location=rtsp://localhost:8554/live/0 protocols=tcp

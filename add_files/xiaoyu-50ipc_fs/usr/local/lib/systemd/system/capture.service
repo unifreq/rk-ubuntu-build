@@ -1,15 +1,19 @@
 [Unit]
-Description=Camera Capture and Stream to MediaMTX
-After=rkaiq_server.service mediamtx.service
-Requires=rkaiq_server.service mediamtx.service
+Description=Rockchip RV1126B VPSS/ISP Video Pipeline Service
+# 核心时序控制：必须在 3A 算法服务和 MediaMTX 环回服务器完全成功拉起之后，本服务才能启动
+After=network.target rkaiiq_3a.service mediamtx.service
+Wants=rkaiiq_3a.service mediamtx.service
 
 [Service]
 Type=simple
 User=root
+Group=root
 ExecStart=/usr/local/bin/capture.sh
+ExecStop=/usr/local/bin/capture.sh stop
+# 守护：如果后台任意进程闪退或报错，服务会在 5 秒钟后自动执行全硬件重置并复位重启
 Restart=always
 RestartSec=5
-WorkingDirectory=/usr/local/bin
+TimeoutStopSec=10
 
 [Install]
 WantedBy=multi-user.target
