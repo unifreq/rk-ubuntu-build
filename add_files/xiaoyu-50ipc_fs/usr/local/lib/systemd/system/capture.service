@@ -8,8 +8,8 @@ Wants=rkaiiq_3a.service mediamtx.service
 Type=simple
 User=root
 Group=root
-ExecStart=/usr/local/bin/capture.sh
-ExecStop=/usr/local/bin/capture.sh stop
+ExecStart=/usr/bin/perl /usr/local/bin/capture.pl
+ExecStop=/usr/bin/perl /usr/local/bin/capture.pl --stop
 # 守护：如果后台任意进程闪退或报错，服务会在 5 秒钟后自动执行全硬件重置并复位重启
 Restart=always
 RestartSec=5
