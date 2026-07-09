@@ -299,10 +299,10 @@ sub display_calc_rotate {
     if ($swap) {
         print "📱 轴向旋转 (${pw}x${ph}) -> GST: [${dir}]\n";
         ($vw, $vh) = ($ph, $pw);
-        $flip = "! videoflip video-direction=${dir}";
+        $flip = "! videoflip video-direction=${dir} ! video/x-raw,format=NV12";
     } elsif ($dir eq "180") {
         print "🙃 180度翻转\n";
-        $flip = "! videoflip video-direction=180";
+        $flip = "! videoflip video-direction=180 ! video/x-raw,format=NV12";
     } else {
         print "🖥️ 横屏直通\n";
     }
@@ -783,7 +783,7 @@ if ($DE) {
     print "1. 启动本地显示路径 ($GST_DEV)...\n";
 
     $gst_cmd = "gst-launch-1.0 v4l2src device=$GST_DEV io-mode=4 "
-             . "! video/x-raw,width=$VW,height=$VH,framerate=$CFPS/1,format=NV12 "
+             . "! video/x-raw,width=$VW,height=$VH,format=NV12 "
              . "$FLIP ! kmssink $kmssink_opts";
 
     ($pid_gst, undef) = gst_display_start($gst_cmd);
