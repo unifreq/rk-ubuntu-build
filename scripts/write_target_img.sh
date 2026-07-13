@@ -105,8 +105,11 @@ cd ${rootpath}
 
 (
 	echo "Extract kernel headers ... "
-	if [ -L lib/modules/${kernel_version}/source ];then
-	    linux_src_dir=$(readlink lib/modules/${kernel_version}/source)
+	if [ -L "lib/modules/${kernel_version}/build" ];then
+	    linux_src_dir=$(readlink "lib/modules/${kernel_version}/build")
+	    linux_src_dir=${linux_src_dir#/}
+	elif [ -L lib/modules/${kernel_version}/source ];then
+	    linux_src_dir=$(readlink "lib/modules/${kernel_version}/source")
 	    linux_src_dir=${linux_src_dir#/}
 	else
 	    linux_src_dir="usr/src/linux"
