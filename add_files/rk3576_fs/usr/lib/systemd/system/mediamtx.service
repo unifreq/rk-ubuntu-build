@@ -1,0 +1,17 @@
+[Unit]
+Description=MediaMTX (rtsp-simple-server) - Media Server
+Documentation=https://github.com/bluenviron/mediamtx
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/mediamtx /etc/mediamtx.yml
+Restart=on-failure
+RestartSec=5
+User=root
+Group=root
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
