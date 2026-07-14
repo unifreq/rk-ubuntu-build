@@ -1,0 +1,18 @@
+[Unit]
+Description=Rockchip Video Pipeline Service
+After=network.target mediamtx.service
+Wants=mediamtx.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/perl /usr/local/bin/capture.pl
+ExecStop=/usr/bin/perl /usr/local/bin/capture.pl --stop
+# 守护：如果后台任意进程闪退或报错，服务会在 5 秒钟后自动执行全硬件重置并复位重启
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
