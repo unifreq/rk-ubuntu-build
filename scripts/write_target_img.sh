@@ -205,6 +205,16 @@ EOF
 )
 
 (
+	conf="extend.conf"
+	echo "create /etc/$conf ... "
+	cd etc
+	if [ "${variant_id}" != "" ];then
+		echo "variant_id=${variant_id}" >> "$conf"
+	fi
+	echo "done"
+)
+
+(
 	if [ -n "${DEFAULT_USER_PSWD}" ];then
 		echo "init user_password_group file"
 		for upg in ${DEFAULT_USER_PSWD};do
