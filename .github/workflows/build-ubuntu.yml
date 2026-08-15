@@ -33,6 +33,7 @@ on:
           - rock-5b
           - tl3562-minievm
           - xiaoyu-50ipc
+          - xylink-xr3528
           - yixun-rs6pro
           - zcube1-max
       linux_flavor:
@@ -101,7 +102,7 @@ on:
       ubuntu_kernel:
         description: "Select mainline kernel"
         required: false
-        default: "6.12.y"
+        default: "6.18.y"
         type: choice
         options:
           - 6.1.y

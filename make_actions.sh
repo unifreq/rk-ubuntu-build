@@ -54,6 +54,9 @@ ht3                     :rk3528-k61        :rk35xx
 yixun-rs6pro            :rk3528-k61        :rk35xx
 tl3562-minievm          :rk3562-k61        :rk35xx
 netfusion               :rk3566-k61        :rk35xx
+xiaoyu-50ipc            :rv1126b-k61       :rk35xx
+xylink-xr3528           :rk3528-k61        :rk35xx
+#-----------------------+------------------+---------------------
 
 
 # Mainline kernel devices
@@ -78,7 +81,7 @@ BUILD_UBUNTU_MAINLINE=($(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^[^#].*:mai
 KERNEL_REPO_URL_VALUE="breakingbadboy/OpenWrt"
 # Kernel tags: kernel_stable, kernel_rk3588, kernel_rk35xx
 KERNEL_TAGS=("stable" "rk3588" "rk35xx")
-STABLE_KERNEL=("6.12.y")
+STABLE_KERNEL=("6.18.y")
 RK3588_KERNEL=("6.1.y")
 RK35XX_KERNEL=("6.1.y")
 # Flippy kernel versions from the ophub repository (kernel_flippy, kernel_rk3588, kernel_rk35xx)
