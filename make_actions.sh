@@ -454,10 +454,12 @@ make_image() {
                     # Update the kernel version in the SoC environment config
                     ENV_SOC="$(echo "${CONFIG_MAP}" | tr -d ' ' | grep -E "^${machine_var}:.*" | cut -d: -f2)"
                     [[ -z "${ENV_SOC}" ]] && error_msg "Unable to determine SoC environment config for [ ${machine_var} ]."
+                    [[ -f "env/soc/${ENV_SOC}.env" ]] || error_msg "SoC environment config file [ env/soc/${ENV_SOC}.env ] not found."
                     sed -i "s|^export kernel_version=.*|export kernel_version=${KERNEL_VERSION}|g" env/soc/${ENV_SOC}.env
+                    echo -e "${INFO} Updated kernel version in [ env/soc/${ENV_SOC}.env ] to [ ${KERNEL_VERSION} ]"
 
                     # sudo /mkimg.sh <soc> <machine> <linux-flavor> [custom]
-                    sudo ./${SCRIPT_MKIMG_FILE} ${ENV_SOC/.env/} ${machine_var} ${ENV_LINUX_FLAVOR} ${ENV_CUSTOM_BOOT}
+                    sudo env kernel_version="${KERNEL_VERSION}" ./${SCRIPT_MKIMG_FILE} ${ENV_SOC/.env/} ${machine_var} ${ENV_LINUX_FLAVOR} ${ENV_CUSTOM_BOOT}
 
                     # Compress the generated image files
                     img_num="$(ls ${BUILD_TMP_DIR}/*.img 2>/dev/null | wc -l)"
