@@ -24,7 +24,7 @@
     ENV_MACHINE: e20c_h28k
     ENV_LINUX_FLAVOR: noble-xfce
     ENV_CUSTOM_BOOT: boot256-ext4root
-    KERNEL_VERSION_NAME: 6.1.y_6.12.y
+    KERNEL_VERSION_NAME: 6.12.y_6.18.y
 ```
 
 ## 可选参数说明
@@ -36,8 +36,8 @@
 | SCRIPT_REPO_URL        | unifreq/rk-ubuntu-build | 设置构建脚本源码仓库，格式为 `<owner>/<repo>` |
 | SCRIPT_REPO_BRANCH     | main                   | 设置构建脚本源码仓库的分支                        |
 | KERNEL_REPO_URL        | breakingbadboy/OpenWrt | 设置内核下载仓库，格式为 `<owner>/<repo>`。默认从 breakingbadboy 维护的[内核 Releases](https://github.com/breakingbadboy/OpenWrt/releases/tag/kernel_stable)下载。 |
-| KERNEL_VERSION_NAME    | 6.12.y                 | 设置[主线内核版本](https://github.com/breakingbadboy/OpenWrt/releases/tag/kernel_stable)，可查看并选择指定版本。可指定单个内核如 `6.1.y`，也可选择多个内核用 `_` 连接如 `6.1.y_6.12.y` |
-| KERNEL_AUTO_LATEST     | true                   | 设置是否自动采用同系列最新版本内核。当为 `true` 时，将自动在内核库中查找 `KERNEL_VERSION_NAME` 指定的内核（如 `6.1.y`）同系列是否有更新版本，如有则自动更换为最新版。设置为 `false` 时将使用指定版本内核。 |
+| KERNEL_VERSION_NAME    | 6.18.y                 | 设置[主线内核版本](https://github.com/breakingbadboy/OpenWrt/releases/tag/kernel_stable)，可查看并选择指定版本。可指定单个内核如 `6.18.y`，也可选择多个内核用 `_` 连接如 `6.12.y_6.18.y` |
+| KERNEL_AUTO_LATEST     | true                   | 设置是否自动采用同系列最新版本内核。当为 `true` 时，将自动在内核库中查找 `KERNEL_VERSION_NAME` 指定的内核（如 `6.18.y`）同系列是否有更新版本，如有则自动更换为最新版。设置为 `false` 时将使用指定版本内核。 |
 | BUILD_TARGET           | image                  | 设置构建输出类型：image 完整镜像或 rootfs 文件。可选值 `image` / `rootfs`。默认值 `image` |
 | ENV_MACHINE            | all                    | 设置构建目标设备的 `SOC`，默认 `all` 构建全部设备，可指定单个设备如 `e20c`，可选择多个设备用 `_` 连接如 `e20c_e54c`。可选值参考：[env/machine](https://github.com/unifreq/rk-ubuntu-build/tree/main/env/machine) |
 | ENV_LINUX_FLAVOR       | noble-rk-media         | 设置构建镜像或 rootfs 的 Linux 发行版风格。默认值 `noble-rk-media`，可选值参考：[env/linux](https://github.com/unifreq/rk-ubuntu-build/tree/main/env/linux) |
