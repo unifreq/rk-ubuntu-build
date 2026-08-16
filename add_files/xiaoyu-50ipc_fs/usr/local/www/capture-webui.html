@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小宇智联 · 采集管理控制台</title>
+<script>try { if (localStorage.getItem("theme") === "light") document.documentElement.setAttribute("data-theme", "light"); } catch (e) {}</script>
+<script src="/chart.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;            /* 页面背景 */
+    --card: #1e293b;          /* 卡片/面板背景 */
+    --border: #334155;        /* 边框 */
+    --border-dash: #2b3a4e;   /* 虚线分割线 */
+    --text: #e2e8f0;          /* 主文字 */
+    --text-dim: #94a3b8;      /* 次要文字 */
+    --text-soft: #cbd5e1;     /* 较浅文字 */
+    --title: #7dd3fc;         /* 区块标题 */
+    --accent: #2563eb;        /* 主色调 */
+    --accent2: #38bdf8;       /* 强调色 */
+    --input-bg: #0f172a;      /* 输入框背景 */
+    --input-border: #475569;  /* 输入框边框 */
+    --hover: #1e293b;         /* 悬停背景 */
+    --ghost-bg: #334155;      /* 次级按钮背景 */
+    --ok-text: #86efac;       /* 状态/输出文字 */
+    --warn: #fbbf24;          /* 告警色 */
+    --success: #16a34a;       /* 成功/开启 */
+  }
+  html[data-theme="light"] {
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --border-dash: #e2e8f0;
+    --text: #0f172a;
+    --text-dim: #64748b;
+    --text-soft: #475569;
+    --title: #0369a1;
+    --accent: #2563eb;
+    --accent2: #0284c7;
+    --input-bg: #ffffff;
+    --input-border: #cbd5e1;
+    --hover: #f8fafc;
+    --ghost-bg: #e2e8f0;
+    --ok-text: #15803d;
+    --warn: #b45309;
+    --success: #16a34a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", "Noto Sans CJK SC", "WenQuanYi Micro Hei", sans-serif;
+         background: var(--bg); color: var(--text); min-height: 100vh; }
+  a { color: var(--accent2); text-decoration: none; }
+  button { cursor: pointer; border: none; border-radius: 6px; padding: 8px 14px;
+           font-size: 14px; transition: opacity .15s; }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-danger  { background: #dc2626; color: #fff; }
+  .btn-warn    { background: #d97706; color: #fff; }
+  .btn-ghost   { background: var(--ghost-bg); color: var(--text); }
+
+  /* 登录 */
+  #loginView { display: flex; align-items: center; justify-content: center; height: 100vh; }
+  .login-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+               padding: 40px; width: 340px; text-align: center; }
+  .login-box h1 { font-size: 20px; margin-bottom: 6px; }
+  .login-box p { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; }
+  .login-box input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--input-border);
+                     background: var(--input-bg); color: var(--text); margin-bottom: 14px; font-size: 14px; }
+  .login-err { color: #f87171; font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+
+  /* 主视图 */
+  #mainView { display: none; max-width: 1100px; margin: 0 auto; padding: 16px; }
+  header { display: flex; justify-content: space-between; align-items: center;
+           padding: 12px 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  header h1 { font-size: 18px; }
+  header h1 .ver { font-size: 12px; font-weight: normal; color: var(--text-dim); margin-left: 8px; }
+  header .hdr-right { display: flex; gap: 8px; }
+  nav.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  nav.tabs button { background: var(--card); color: var(--text-dim); padding: 8px 18px; }
+  nav.tabs button.active { background: var(--accent); color: #fff; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+          padding: 16px; margin-bottom: 16px; }
+  .card h3 { font-size: 15px; margin-bottom: 12px; color: var(--title); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+
+  /* 状态 */
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px;
+                  font-size: 12px; font-weight: 600; }
+  .badge-on  { background: var(--success); color: #fff; }
+  .badge-off { background: #64748b; color: #fff; }
+  .kv { display: flex; justify-content: space-between; padding: 6px 0;
+        border-bottom: 1px dashed var(--border); font-size: 14px; }
+  .kv:last-child { border-bottom: none; }
+  .kv span:first-child { color: var(--text-dim); }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  pre.status-text { background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+                    padding: 12px; font-size: 13px; white-space: pre-wrap;
+                    color: var(--ok-text); max-height: 260px; overflow: auto; }
+
+  /* 配置表单 */
+  .cfg-group { margin-bottom: 16px; }
+  .cfg-group h4 { font-size: 14px; color: var(--warn); margin-bottom: 8px; }
+  .sub-h { margin: 12px 0 4px; font-size: 13px; color: var(--title); border-bottom: 1px dashed var(--border); padding-bottom: 2px; }
+  .cfg-layout { display: flex; gap: 16px; align-items: flex-start; }
+  @media (max-width: 920px) { .cfg-layout { flex-direction: column; } }
+  .cfg-main { flex: 1; min-width: 0; }
+  .cfg-help-card { width: 300px; flex: none; position: sticky; top: 16px; }
+  @media (max-width: 920px) { .cfg-help-card { width: 100%; position: static; } }
+  .cfg-help-card .help-body { font-size: 13px; color: var(--text-soft); line-height: 1.6;
+              background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-height: 90px; }
+  .cfg-row { display: flex; align-items: center; gap: 12px; padding: 7px 8px;
+             border-bottom: 1px dashed var(--border-dash); border-radius: 6px; transition: background .15s; }
+  .cfg-row:hover { background: var(--hover); }
+  .cfg-row label:not(.switch) { flex: 1; font-size: 14px; color: var(--text-soft); }
+  .cfg-row label.switch { flex: none; }
+  .cfg-row input[type=text], .cfg-row input[type=number], .cfg-row select { width: 240px; padding: 7px 10px;
+             border-radius: 6px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text); font-size: 13px; }
+  .cfg-row select { cursor: pointer; }
+  .switch { position: relative; width: 40px; height: 22px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; inset: 0; background: var(--input-border);
+            border-radius: 22px; transition: .2s; }
+  .slider:before { content: ""; position: absolute; height: 16px; width: 16px;
+            left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  .switch input:checked + .slider { background: var(--success); }
+  .switch input:checked + .slider:before { transform: translateX(18px); }
+  .radio-group { display: flex; gap: 14px; }
+  .radio-item { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-soft); cursor: pointer; }
+  .radio-item input { accent-color: var(--accent); }
+  .cfg-actions { display: flex; gap: 10px; margin-top: 12px; }
+  .toast { position: fixed; right: 20px; top: 20px; padding: 12px 18px; border-radius: 8px;
+           color: #fff; font-size: 14px; z-index: 99; display: none; box-shadow: 0 4px 12px #0008; }
+  .toast.ok { background: var(--success); }
+  .toast.err { background: #dc2626; }
+
+  /* 监控 */
+  .chart-wrap { height: 220px; position: relative; overflow: hidden; }
+  .metric { display: flex; gap: 24px; margin-bottom: 12px; }
+  .metric div { font-size: 14px; }
+  .metric b { font-size: 22px; color: var(--accent2); }
+  .range-switch { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .range-switch button { background: var(--ghost-bg); color: var(--text-soft); padding: 5px 12px; font-size: 13px; border-radius: 6px; }
+  .range-switch button.active { background: var(--accent); color: #fff; }
+  .range-switch #statHint { align-self: center; margin-left: auto; font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  .net-list { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .net-item { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; min-width: 180px; }
+  .net-item .ni-name { font-weight: 600; color: var(--title); }
+  .net-item .ni-meta { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+  .net-item .ni-link { color: var(--text-soft); font-size: 12px; margin-top: 2px; }
+  .net-item .ni-rate { color: var(--accent2); font-size: 13px; margin-top: 4px; }
+  .net-item .ni-rate .down { color: #38bdf8; }
+  .net-item .ni-rate .up { color: #22c55e; }
+
+  /* 移动端适配 (手机 ≤640px) */
+  @media (max-width: 640px) {
+    #mainView { padding: 10px; }
+    .login-box { width: 92%; max-width: 340px; padding: 28px 20px; }
+    header { flex-wrap: wrap; gap: 6px; }
+    header h1 { font-size: 15px; }
+    header .hdr-right { width: 100%; justify-content: flex-end; }
+    nav.tabs button { padding: 8px 12px; font-size: 13px; }
+    .metric { gap: 14px; }
+    .metric b { font-size: 19px; }
+    .cfg-row { flex-wrap: wrap; gap: 6px 10px; padding: 8px 4px; }
+    .cfg-row label:not(.switch) { flex: 1 1 100%; }
+    .cfg-row input[type=text], .cfg-row input[type=number], .cfg-row select { width: 100%; }
+    .radio-group { flex-wrap: wrap; }
+    .cfg-actions { flex-wrap: wrap; }
+    .card { padding: 12px; }
+    .net-item { min-width: 100%; }
+    .range-switch #statHint { margin-left: 0; flex-basis: 100%; }
+    .toast { right: 10px; left: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 登录视图 -->
+<div id="loginView">
+  <div class="login-box">
+    <h1>小宇智联 · 采集管理控制台</h1>
+    <p>请输入系统 root 密码登录</p>
+    <input type="password" id="pw" placeholder="root 密码" autocomplete="current-password">
+    <div class="login-err" id="loginErr"></div>
+    <button class="btn-primary" id="loginBtn" style="width:100%">登 录</button>
+  </div>
+</div>
+
+<!-- 主视图 -->
+<div id="mainView">
+  <header>
+    <h1>小宇智联 · 采集管理控制台 <span class="ver">v1.0.0</span></h1>
+    <div class="hdr-right">
+      <button class="btn-ghost" id="themeBtn">浅色主题</button>
+      <button class="btn-ghost" id="logoutBtn">退出登录</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="status" class="active">服务状态</button>
+    <button data-tab="config">参数配置</button>
+    <button data-tab="monitor">资源监控</button>
+  </nav>
+
+  <!-- 服务状态 -->
+  <section class="tab active" id="tab-status">
+    <div class="grid2">
+      <div class="card">
+        <h3>capture.service 状态</h3>
+        <div class="kv"><span>运行状态</span><span id="st-active">-</span></div>
+        <div class="kv"><span>开机自启</span><span id="st-enabled">-</span></div>
+        <div class="kv"><span>主进程 PID</span><span id="st-pid">-</span></div>
+        <div class="kv"><span>SubState</span><span id="st-sub">-</span></div>
+        <div class="kv"><span>启动时间</span><span id="st-time">-</span></div>
+        <div class="btns">
+          <button class="btn-success" data-svc="start">启动</button>
+          <button class="btn-danger" data-svc="stop">停止</button>
+          <button class="btn-warn" data-svc="restart">重启</button>
+          <button class="btn-primary" data-svc="enable">开启开机自启</button>
+          <button class="btn-ghost" data-svc="disable">关闭开机自启</button>
+        </div>
+        <h3 style="margin-top:16px">capture.pl --status</h3>
+        <pre class="status-text" id="st-text">加载中...</pre>
+      </div>
+      <div class="card">
+        <h3>运行参数摘要</h3>
+        <h4 class="sub-h">【推流】</h4>
+        <div class="kv"><span>总开关</span><span id="ov-stream">-</span></div>
+        <div class="kv"><span>音频</span><span id="ov-audio">-</span></div>
+        <div class="kv"><span>采集分辨率</span><span id="ov-capres">-</span></div>
+        <div class="kv"><span>采集帧率</span><span id="ov-capfps">-</span></div>
+        <div class="kv"><span>编码器</span><span id="ov-codec">-</span></div>
+        <div class="kv"><span>码率</span><span id="ov-bitrate">-</span></div>
+        <div class="kv"><span>码率模式</span><span id="ov-rc">-</span></div>
+        <div class="kv"><span>RTSP</span><span id="ov-rtsp">-</span></div>
+        <div class="kv"><span>文字OSD</span><span id="ov-osdtext">-</span></div>
+        <div class="kv"><span>时间戳OSD</span><span id="ov-osdts">-</span></div>
+        <h4 class="sub-h">【显示】</h4>
+        <div class="kv"><span>总开关</span><span id="ov-display">-</span></div>
+        <div class="kv"><span>分辨率</span><span id="ov-dispres">-</span></div>
+        <div class="kv"><span>DRM设备</span><span id="ov-drmconn">-</span></div>
+        <div class="kv"><span>DRM状态</span><span id="ov-drmstatus">-</span></div>
+        <div class="kv"><span>DRM模式</span><span id="ov-drmmode">-</span></div>
+        <div class="kv"><span>文字OSD</span><span id="ov-dosdtext">-</span></div>
+        <div class="kv"><span>时间戳OSD</span><span id="ov-dosdts">-</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 参数配置 -->
+  <section class="tab" id="tab-config">
+    <div class="cfg-layout">
+      <div class="card cfg-main">
+        <h3>参数调整</h3>
+        <div id="cfgForm"></div>
+        <div class="cfg-actions">
+          <button class="btn-success" id="cfgSave">保存配置</button>
+          <button class="btn-primary" id="cfgApply">保存并即时生效</button>
+          <button class="btn-ghost" id="cfgReload">重新加载</button>
+        </div>
+        <p style="font-size:12px;color:#94a3b8;margin-top:10px">
+          "保存配置"仅写回 /etc/capture.conf（下次启动生效）；"保存并即时生效"会写回并重启 capture.service 立即应用。
+        </p>
+      </div>
+      <div class="card cfg-help-card">
+        <h3>💡 参数帮助</h3>
+        <div class="help-body" id="cfgHelp">将鼠标移到左侧任一参数行上，此处显示对应说明。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 资源监控 -->
+  <section class="tab" id="tab-monitor">
+    <div class="card">
+      <div class="metric">
+        <div>CPU <b id="m-cpu">-</b>%</div>
+        <div>内存 <b id="m-mem">-</b> MB</div>
+        <div>温度 <b id="m-temp">-</b> ℃</div>
+      </div>
+      <div class="range-switch" id="statRange">
+        <button data-min="2">2分钟</button>
+        <button data-min="5" class="active">5分钟</button>
+        <button data-min="15">15分钟</button>
+        <button data-min="30">30分钟</button>
+        <button data-min="60">60分钟</button>
+        <span id="statHint"></span>
+      </div>
+      <div class="grid2">
+        <div><h3 style="font-size:14px;color:var(--title)">CPU 使用率 %</h3><div class="chart-wrap"><canvas id="c-cpu"></canvas></div></div>
+        <div><h3 style="font-size:14px;color:var(--title)">内存使用 MB</h3><div class="chart-wrap"><canvas id="c-mem"></canvas></div></div>
+        <div><h3 style="font-size:14px;color:var(--title)">温度 ℃</h3><div class="chart-wrap"><canvas id="c-temp"></canvas></div></div>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--title)">网络监控</h3>
+        <div class="net-list" id="netInfo"></div>
+        <div class="grid2" id="netCharts"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let charts = {};
+const netSeries = {};   // dev -> { t:[], rx:[], tx:[] } (rx/tx 单位为 Mbps)
+let netCharts = {};     // dev -> Chart 实例
+
+function toast(msg, ok = true) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast " + (ok ? "ok" : "err");
+  t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 3000);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  if (res.status === 401) { showLogin(); throw new Error("未授权"); }
+  return res.json();
+}
+
+/* ---------- 登录 ---------- */
+function showLogin() { $("loginView").style.display = "flex"; $("mainView").style.display = "none"; }
+function showMain() { $("loginView").style.display = "none"; $("mainView").style.display = "block"; }
+
+$("loginBtn").onclick = async () => {
+  const pw = $("pw").value;
+  $("loginErr").textContent = "";
+  try {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: pw })
+    });
+    if (res.status === 200) { showMain(); refreshStatus(); loadConfig(); }
+    else { $("loginErr").textContent = "密码错误"; }
+  } catch (e) { $("loginErr").textContent = "网络错误"; }
+};
+$("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") $("loginBtn").click(); });
+
+$("logoutBtn").onclick = async () => {
+  await fetch("/api/logout", { method: "POST" });
+  showLogin();
+};
+
+/* ---------- 主题切换 (深色默认 / 浅色), localStorage 持久化 ---------- */
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  try { localStorage.setItem("theme", t); } catch (e) {}
+  const btn = $("themeBtn");
+  if (btn) btn.textContent = t === "light" ? "深色主题" : "浅色主题";
+  const cs = getComputedStyle(document.documentElement);
+  const tick = cs.getPropertyValue("--text-dim").trim() || "#94a3b8";
+  Object.values(charts).forEach((ch) => {
+    if (ch && ch.options && ch.options.scales) {
+      ch.options.scales.x.ticks.color = tick;
+      ch.options.scales.y.ticks.color = tick;
+      ch.update();
+    }
+  });
+  Object.values(netCharts).forEach((ch) => {
+    if (ch && ch.options && ch.options.scales) {
+      ch.options.scales.x.ticks.color = tick;
+      ch.options.scales.y.ticks.color = tick;
+      if (ch.options.plugins && ch.options.plugins.legend) ch.options.plugins.legend.labels.color = tick;
+      ch.update();
+    }
+  });
+}
+$("themeBtn").onclick = () => applyTheme(document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light");
+applyTheme((function () { try { return localStorage.getItem("theme") || "dark"; } catch (e) { return "dark"; } })());
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll("nav.tabs button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll("nav.tabs button").forEach(x => x.classList.remove("active"));
+    document.querySelectorAll("section.tab").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    $("tab-" + b.dataset.tab).classList.add("active");
+    if (b.dataset.tab === "monitor") initCharts();
+  };
+});
+
+/* ---------- 服务状态 ---------- */
+async function refreshStatus() {
+  try {
+    const d = await api("/api/status");
+    const s = d.service, p = d.process, o = p.overview;
+    $("st-active").innerHTML = s.active ? '<span class="status-badge badge-on">运行中</span>' : '<span class="status-badge badge-off">已停止</span>';
+    $("st-enabled").innerHTML = s.enabled ? '<span class="status-badge badge-on">已启用</span>' : '<span class="status-badge badge-off">未启用</span>';
+    $("st-pid").textContent = s.main_pid && s.main_pid !== "0" ? s.main_pid : "-";
+    $("st-sub").textContent = s.sub_state || "-";
+    $("st-time").textContent = s.start_time || "-";
+    const onoff = (v) => (v === "1" || v === "true" || v === "yes") ? "ON" : "OFF";
+    // 推流组
+    $("ov-stream").textContent = onoff(o.stream);
+    $("ov-audio").textContent = onoff(o.audio);
+    $("ov-capres").textContent = o.cap_res;
+    $("ov-capfps").textContent = o.cap_fps;
+    $("ov-codec").textContent = o.codec;
+    $("ov-bitrate").textContent = o.bitrate;
+    $("ov-rc").textContent = o.rc_mode;
+    $("ov-rtsp").textContent = o.rtsp;
+    $("ov-osdtext").textContent = o.osd_text;
+    $("ov-osdts").textContent = o.osd_ts;
+    // 显示组
+    $("ov-display").textContent = onoff(o.display);
+    $("ov-dispres").textContent = o.disp_res;
+    $("ov-drmconn").textContent = o.drm_conn;
+    $("ov-drmstatus").textContent = o.drm_status;
+    $("ov-drmmode").textContent = o.drm_mode;
+    $("ov-dosdtext").textContent = o.d_osd_text;
+    $("ov-dosdts").textContent = o.d_osd_ts;
+    $("st-text").textContent = p.status_text || "(无输出)";
+  } catch (e) {}
+}
+
+document.querySelectorAll("[data-svc]").forEach((b) => {
+  b.onclick = async () => {
+    b.disabled = true;
+    const r = await api("/api/service", { method: "POST", body: JSON.stringify({ action: b.dataset.svc }) });
+    b.disabled = false;
+    toast(r.ok ? "操作成功: " + b.dataset.svc : "操作失败: " + (r.err || ""), r.ok);
+    refreshStatus();
+  };
+});
+
+/* ---------- 配置 ---------- */
+let cfgSchema = [];
+async function loadConfig() {
+  try {
+    const d = await api("/api/config");
+    cfgSchema = d.schema;
+    renderCfg();
+    loadDynamicOptions();
+  } catch (e) {}
+}
+
+function cfgControl(item) {
+  if (item.type === "bool") {
+    const on = item.value === "1" || item.value === "true" || item.value === "yes";
+    return '<label class="switch"><input type="checkbox" data-key="' + item.key + '" ' + (on ? "checked" : "") + '><span class="slider"></span></label>';
+  }
+  if (item.type === "hidden") {
+    return '<input type="hidden" data-key="' + item.key + '" value="' + esc(item.value || "") + '">';
+  }
+  if (item.type === "radio") {
+    return '<div class="radio-group">' + (item.options || []).map((opt) =>
+      '<label class="radio-item"><input type="radio" name="' + item.key + '" data-key="' + item.key + '" value="' + esc(opt) + '" ' + (String(item.value) === String(opt) ? "checked" : "") + '>' + esc(opt) + '</label>'
+    ).join('') + '</div>';
+  }
+  if (item.type === "select") {
+    const opts = (item.options || []).map((opt) =>
+      '<option value="' + esc(opt) + '" ' + (String(item.value) === String(opt) ? "selected" : "") + '>' + esc(opt) + '</option>'
+    ).join('');
+    return '<select data-key="' + item.key + '"' + (item.dynamic ? ' data-dynamic="' + item.dynamic + '"' : '') + ' data-cur="' + esc(item.value || "") + '">' + opts + '</select>';
+  }
+  return '<input type="' + (item.type === "int" ? "number" : "text") + '" data-key="' + item.key + '" value="' + esc(item.value || "") + '">';
+}
+
+function renderCfg() {
+  const groups = {};
+  cfgSchema.forEach((item) => { (groups[item.group] = groups[item.group] || []).push(item); });
+  let html = "";
+  for (const g in groups) {
+    html += '<div class="cfg-group"><h4>' + g + '</h4>';
+    groups[g].forEach((item) => {
+      if (item.type === "hidden") { html += cfgControl(item); return; }   // 隐藏字段不渲染行
+      html += '<div class="cfg-row" data-help="' + esc(item.help || "") + '"><label>' + item.label + '</label>' + cfgControl(item) + '</div>';
+    });
+    html += '</div>';
+  }
+  $("cfgForm").innerHTML = html;
+  syncResSelect();
+}
+
+/* 分辨率联动: 根据对应 WIDTH/HEIGHT 设置 CAPTURE_RES / DISPLAY_RES 选中值 */
+function syncResSelect() {
+  ["CAPTURE_RES", "DISPLAY_RES"].forEach((resKey) => {
+    const sel = document.querySelector('select[data-key="' + resKey + '"]');
+    if (!sel) return;
+    const base = resKey === "CAPTURE_RES" ? "CAPTURE" : "DISPLAY";
+    const w = (document.querySelector('input[data-key="' + base + '_WIDTH"]') || {}).value || "";
+    const h = (document.querySelector('input[data-key="' + base + '_HEIGHT"]') || {}).value || "";
+    if (w && h) {
+      const res = w + "x" + h;
+      if (!Array.from(sel.options).some((o) => o.value === res)) {
+        const o = document.createElement("option"); o.value = res; o.textContent = res; sel.appendChild(o);
+      }
+      sel.value = res;
+    }
+  });
+}
+
+async function loadDynamicOptions() {
+  const dyn = { devices: [], drm: [], fonts: [], pango: [], drm_ids: [], drm_modes: [], capture_res: [], formats: [], alsa_dev: [], alsa_rate: [] };
+  try { dyn.devices = (await api("/api/devices")).devices || []; } catch (e) {}
+  try { const d = await api("/api/drm"); dyn.drm = d.connectors || []; dyn.drm_ids = d.drm_ids || []; dyn.drm_modes = d.modes || []; } catch (e) {}
+  try { const f = await api("/api/fonts"); dyn.fonts = f.fonts || []; dyn.pango = f.pango || []; } catch (e) {}
+  try { dyn.capture_res = (await api("/api/capture_res")).res || []; } catch (e) {}
+  try { dyn.formats = (await api("/api/formats")).fps || []; } catch (e) {}
+  try { const a = await api("/api/alsa"); dyn.alsa_dev = a.devices || []; dyn.alsa_rate = a.rates || []; } catch (e) {}
+  document.querySelectorAll("select[data-dynamic]").forEach((sel) => {
+    const name = sel.dataset.dynamic;
+    if (!name) return;   // 非动态下拉 (静态枚举) 保留 options, 不被清空
+    const cur = sel.dataset.cur || sel.value || "";
+    sel.innerHTML = "";
+    if (name === "drm") {   // DRM 设备下拉补"空"选项
+      const o = document.createElement("option"); o.value = ""; o.textContent = "空(自动)"; sel.appendChild(o);
+    }
+    (dyn[name] || []).forEach((opt) => {
+      const o = document.createElement("option");
+      o.value = opt.value; o.textContent = opt.label;
+      sel.appendChild(o);
+    });
+    if (cur && !Array.from(sel.options).some((o) => o.value === cur)) {
+      const o = document.createElement("option"); o.value = cur; o.textContent = cur; sel.appendChild(o);
+    }
+    sel.value = cur;
+  });
+}
+
+/* 帮助卡片: 悬停/聚焦显示对应参数说明 */
+function showHelp(row) {
+  const label = row.querySelector("label") ? row.querySelector("label").textContent : "";
+  const help = row.dataset.help || "";
+  $("cfgHelp").innerHTML = '<b style="color:#7dd3fc">' + esc(label) + '</b><br><br>' + (help ? esc(help) : "（该参数无额外说明）");
+}
+$("cfgForm").addEventListener("mouseover", (e) => {
+  const row = e.target.closest(".cfg-row");
+  if (row) showHelp(row);
+});
+$("cfgForm").addEventListener("focusin", (e) => {
+  const row = e.target.closest(".cfg-row");
+  if (row) showHelp(row);
+});
+/* 分辨率联动: 选择 CAPTURE_RES / DISPLAY_RES 时写入对应 WIDTH/HEIGHT */
+$("cfgForm").addEventListener("change", (e) => {
+  const k = e.target && e.target.dataset && e.target.dataset.key;
+  if (k === "FFMPEG_CAM_DEV") { reloadCaptureDeps(); }
+  if (k === "CAPTURE_RES" || k === "DISPLAY_RES") {
+    const m = e.target.value.split("x");
+    if (m.length === 2) {
+      const base = k === "CAPTURE_RES" ? "CAPTURE" : "DISPLAY";
+      const w = document.querySelector('input[data-key="' + base + '_WIDTH"]');
+      const h = document.querySelector('input[data-key="' + base + '_HEIGHT"]');
+      if (w) w.value = m[0];
+      if (h) h.value = m[1];
+    }
+  }
+});
+
+/* 推流采集设备变更后: 重载采集分辨率/帧率下拉 (两者均依赖当前设备) */
+async function reloadCaptureDeps() {
+  try {
+    const cr = (await api("/api/capture_res")).res || [];
+    fillDynamicSel(document.querySelector('select[data-key="CAPTURE_RES"]'), cr);
+    const fm = (await api("/api/formats")).fps || [];
+    fillDynamicSel(document.querySelector('select[data-key="CAPTURE_FPS"]'), fm);
+  } catch (e) {}
+}
+/* 用数据重建 select 选项, 保留当前选中 (若当前值不在新选项则补回) */
+function fillDynamicSel(sel, items) {
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = "";
+  (items || []).forEach((o) => {
+    const op = document.createElement("option"); op.value = o.value; op.textContent = o.label; sel.appendChild(op);
+  });
+  if (cur && !Array.from(sel.options).some((o) => o.value === cur)) {
+    const op = document.createElement("option"); op.value = cur; op.textContent = cur; sel.appendChild(op);
+  }
+  sel.value = cur;
+}
+
+function esc(s) { return String(s).replace(/&/g, String.fromCharCode(38)+"amp;").replace(/"/g, String.fromCharCode(38)+"quot;").replace(/</g, String.fromCharCode(38)+"lt;"); }
+
+function collectConfig() {
+  const cfg = {};
+  document.querySelectorAll("[data-key]").forEach((el) => {
+    const k = el.dataset.key;
+    if (el.type === "checkbox") cfg[k] = el.checked ? "true" : "false";
+    else if (el.type === "radio") { if (el.checked) cfg[k] = el.value; }
+    else cfg[k] = el.value;
+  });
+  return cfg;
+}
+
+$("cfgSave").onclick = async () => {
+  const r = await api("/api/config/save", { method: "POST", body: JSON.stringify({ config: collectConfig() }) });
+  toast(r.ok ? "已保存到 /etc/capture.conf" : "保存失败", r.ok);
+};
+$("cfgApply").onclick = async () => {
+  const r = await api("/api/config/apply", { method: "POST", body: JSON.stringify({ config: collectConfig() }) });
+  toast(r.ok ? "已保存并重启 capture.service" : "即时生效失败", r.ok);
+  setTimeout(refreshStatus, 3000);
+};
+$("cfgReload").onclick = loadConfig;
+
+/* ---------- 资源监控 ---------- */
+function initCharts() {
+  if (Object.keys(charts).length) { return; }
+  const mk = (id, color) => new Chart($(id), {
+    type: "line",
+    data: { labels: [], datasets: [{ data: [], borderColor: color, backgroundColor: color + "22", fill: true, tension: .3, pointRadius: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { display: true, ticks: { maxTicksLimit: 6, color: "#94a3b8" } }, y: { beginAtZero: true, color: "#94a3b8", ticks: { color: "#94a3b8" } } }, plugins: { legend: { display: false } } }
+  });
+  charts.cpu = mk("c-cpu", "#38bdf8");
+  charts.mem = mk("c-mem", "#a78bfa");
+  charts.temp = mk("c-temp", "#f87171");
+}
+
+/* 监控: 始终缓存最近 1 小时 (2 秒采样 = 1800 点), 切换窗口只改变显示范围, 不丢弃缓存 */
+const MAX_POINTS = 1800;
+const WINDOW_POINTS = { 2: 60, 5: 150, 15: 450, 30: 900, 60: 1800 };
+let statWindowMin = 5;
+const statHist = { cpu: { t: [], v: [] }, mem: { t: [], v: [] }, temp: { t: [], v: [] } };
+
+function pushHist(key, t, v) {
+  statHist[key].t.push(t); statHist[key].v.push(v);
+  while (statHist[key].t.length > MAX_POINTS) { statHist[key].t.shift(); statHist[key].v.shift(); }
+}
+
+function applyStatWindow() {
+  const n = WINDOW_POINTS[statWindowMin] || 60;
+  // x 轴刻度随窗口动态变化 (数据足够时坐标轴跨度随之改变)
+  const tickLimit = Math.max(4, Math.min(10, Math.round(n / 20)));
+  const setChart = (c, key) => {
+    if (!c) return;
+    c.options.scales.x.ticks.maxTicksLimit = tickLimit;
+    c.data.labels = statHist[key].t.slice(-n);
+    c.data.datasets[0].data = statHist[key].v.slice(-n);
+    c.update();
+  };
+  setChart(charts.cpu, "cpu");
+  setChart(charts.mem, "mem");
+  setChart(charts.temp, "temp");
+  Object.keys(netCharts).forEach((dev) => {
+    const s = netSeries[dev];
+    const ch = netCharts[dev];
+    if (!s || !ch) return;
+    ch.options.scales.x.ticks.maxTicksLimit = tickLimit;
+    ch.data.labels = s.t.slice(-n);
+    ch.data.datasets[0].data = s.rx.slice(-n);
+    ch.data.datasets[1].data = s.tx.slice(-n);
+    ch.update();
+  });
+  document.querySelectorAll("#statRange button").forEach((b) => {
+    b.classList.toggle("active", +b.dataset.min === statWindowMin);
+  });
+  const pts = statHist.cpu.t.length;
+  const hint = $("statHint");
+  if (hint) hint.textContent = "窗口 " + statWindowMin + " 分钟 · 已缓存 " + pts + " 点（约 " + Math.floor(pts * 2 / 60) + " 分钟）";
+}
+
+/* 网络速率自适应显示 (输入为 bytes/s, 内部 ×8 换算为 bit/s 后再按 Kbps/Mbps 显示) */
+function fmtRate(bytes) {
+  const bits = bytes * 8;
+  if (bits >= 1e6) return (bits / 1e6).toFixed(2) + " Mbps";
+  if (bits >= 1e3) return (bits / 1e3).toFixed(1) + " Kbps";
+  return Math.round(bits) + " bps";
+}
+
+function mkNetConfig() {
+  const cs = getComputedStyle(document.documentElement);
+  const tick = cs.getPropertyValue("--text-dim").trim() || "#94a3b8";
+  return {
+    type: "line",
+    data: { labels: [], datasets: [
+      { label: "下行", data: [], borderColor: "#38bdf8", backgroundColor: "#38bdf822", fill: true, tension: .3, pointRadius: 0 },
+      { label: "上行", data: [], borderColor: "#22c55e", backgroundColor: "#22c55e22", fill: true, tension: .3, pointRadius: 0 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, animation: false,
+      scales: { x: { display: true, ticks: { maxTicksLimit: 6, color: tick } }, y: { beginAtZero: true, ticks: { color: tick, callback: (v) => v.toFixed(2) } } },
+      plugins: { legend: { display: true, labels: { color: tick } } } }
+  };
+}
+
+/* 刷新网络信息条 + 每设备上下行双线图表 */
+function refreshNet(netArr, t) {
+  const info = $("netInfo");
+  if (info) {
+    info.innerHTML = (netArr || []).map((n) =>
+      '<div class="net-item"><div class="ni-name">' + esc(n.name) + '</div>' +
+      '<div class="ni-meta">IP ' + (esc(n.ip) || "无") + ' · MAC ' + (esc(n.mac) || "无") + '</div>' +
+      '<div class="ni-link">连接 ' + (n.speed ? n.speed + " Mbps" : "未连接") + '</div>' +
+      '<div class="ni-rate"><span class="down">↓ ' + fmtRate(n.rx) + '</span> <span class="up">↑ ' + fmtRate(n.tx) + '</span></div></div>'
+    ).join("");
+  }
+  (netArr || []).forEach((n) => {
+    if (!netSeries[n.name]) netSeries[n.name] = { t: [], rx: [], tx: [] };
+    const s = netSeries[n.name];
+    s.t.push(t);
+    s.rx.push(+(n.rx * 8 / 1e6).toFixed(4));
+    s.tx.push(+(n.tx * 8 / 1e6).toFixed(4));
+    while (s.t.length > MAX_POINTS) { s.t.shift(); s.rx.shift(); s.tx.shift(); }
+    if (!netCharts[n.name]) {
+      const box = document.createElement("div");
+      box.innerHTML = '<h3 style="font-size:14px;color:var(--title)">' + esc(n.name) + ' 速率</h3><div class="chart-wrap"><canvas></canvas></div>';
+      const host = $("netCharts");
+      if (host) host.appendChild(box);
+      netCharts[n.name] = new Chart(box.querySelector("canvas"), mkNetConfig());
+    }
+  });
+}
+
+async function refreshStats() {
+  try {
+    const d = await api("/api/stats");
+    $("m-cpu").textContent = d.cpu;
+    $("m-mem").textContent = d.mem_used + " / " + d.mem_total;
+    $("m-temp").textContent = d.temp !== null && d.temp !== undefined ? d.temp : "-";
+    const t = new Date(d.time * 1000).toLocaleTimeString();
+    if (Object.keys(charts).length) {
+      pushHist("cpu", t, d.cpu);
+      pushHist("mem", t, d.mem_used);
+      pushHist("temp", t, d.temp);
+      refreshNet(d.net, t);
+      applyStatWindow();
+    }
+  } catch (e) {}
+}
+
+/* 时间窗口切换 */
+$("statRange") && $("statRange").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-min]");
+  if (b) { statWindowMin = +b.dataset.min; applyStatWindow(); }
+});
+
+/* ---------- 初始化 ---------- */
+(async function init() {
+  try {
+    const res = await fetch("/api/status");
+    if (res.status === 200) { showMain(); refreshStatus(); loadConfig(); }
+    else { showLogin(); }
+  } catch (e) { showLogin(); }
+  setInterval(refreshStatus, 5000);
+  setInterval(refreshStats, 2000);
+})();
+</script>
+</body>
+</html>

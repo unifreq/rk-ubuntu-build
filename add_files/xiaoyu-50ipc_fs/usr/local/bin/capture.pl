@@ -53,8 +53,26 @@ my %opt = (
     encoder_bitrate      => undef,
     encoder_gop          => undef,
     encoder_extra        => undef,
+    encoder_rc_mode      => undef,
     rtsp_url             => undef,
     force_modesetting    => undef,
+    audio_enable         => undef,
+    audio_device         => undef,
+    audio_bitrate        => undef,
+    audio_samplerate     => undef,
+    audio_channels       => undef,
+    osd_enable           => undef,
+    osd_text             => undef,
+    osd_font             => undef,
+    osd_timestamp        => undef,
+    osd_timestamp_format => undef,
+    osd_fontsize         => undef,
+    display_osd_enable         => undef,
+    display_osd_text           => undef,
+    display_osd_timestamp      => undef,
+    display_osd_timestamp_format => undef,
+    display_osd_fontsize       => undef,
+    display_osd_font           => undef,
 );
 
 GetOptions(
@@ -83,8 +101,26 @@ GetOptions(
     'encoder-bitrate=s'   => \$opt{encoder_bitrate},
     'encoder-gop=s'       => \$opt{encoder_gop},
     'encoder-extra=s'     => \$opt{encoder_extra},
+    'encoder-rc-mode=s'   => \$opt{encoder_rc_mode},
     'rtsp-url=s'          => \$opt{rtsp_url},
     'force-modesetting=s' => \$opt{force_modesetting},
+    'audio-enable!'       => \$opt{audio_enable},
+    'audio-device=s'      => \$opt{audio_device},
+    'audio-bitrate=s'     => \$opt{audio_bitrate},
+    'audio-samplerate=i'  => \$opt{audio_samplerate},
+    'audio-channels=i'    => \$opt{audio_channels},
+    'osd-enable!'         => \$opt{osd_enable},
+    'osd-text=s'          => \$opt{osd_text},
+    'osd-font=s'          => \$opt{osd_font},
+    'osd-timestamp!'      => \$opt{osd_timestamp},
+    'osd-timestamp-format=s' => \$opt{osd_timestamp_format},
+    'osd-fontsize=i'     => \$opt{osd_fontsize},
+    'display-osd-enable!' => \$opt{display_osd_enable},
+    'display-osd-text=s'  => \$opt{display_osd_text},
+    'display-osd-timestamp!' => \$opt{display_osd_timestamp},
+    'display-osd-timestamp-format=s' => \$opt{display_osd_timestamp_format},
+    'display-osd-fontsize=i' => \$opt{display_osd_fontsize},
+    'display-osd-font=s'     => \$opt{display_osd_font},
 ) or die "用法: $0 [选项]\n使用 --help 查看帮助\n";
 
 if ($opt{version}) {
@@ -118,9 +154,36 @@ if ($opt{help}) {
 
 编码参数:
   --encoder-codec=CODEC            h264_rkmpp / hevc_rkmpp
-  --encoder-bitrate=BITRATE        如 8M, 4M
-  --encoder-gop=GOP                如 auto, 60, 120
-  --encoder-extra=EXTRA            额外编码参数
+  --encoder-bitrate=BITRATE        目标码率 (如 8M, 12M, 16M)
+  --encoder-gop=GOP                auto=2倍帧率, 或固定值 (如 60, 120)
+  --encoder-extra=EXTRA            高级自定义参数, 追加末尾并覆盖自动值
+  --encoder-rc-mode=RC             CBR/VBR/AVBR (默认 CBR, 防马赛克)
+  自动计算: VBR->minrate 50% / maxrate 150% / bufsize 2*max;
+            AVBR->maxrate 150% / bufsize 2*max; level/QP 按分辨率与码率自动推导
+
+音频参数:
+  --audio-enable / --no-audio-enable   启用/关闭麦克风推流 (默认开启)
+  --audio-device=DEVICE                ALSA 设备 (默认 default)
+  --audio-samplerate=NUM               采样率 (默认 48000)
+  --audio-channels=NUM                 声道数 (默认 1)
+  --audio-bitrate=BITRATE              AAC 码率 (默认 128k)
+
+OSD 文字参数 (推流):
+  --osd-enable / --no-osd-enable       启用/关闭推流文字叠加 (默认开启)
+  --osd-text=TEXT                       左上角固定文字 (默认 小宇智联)
+  --osd-font=FILE                       中文字体文件路径 (drawtext 用)
+  --osd-timestamp / --no-osd-timestamp  右上角时间戳开关 (默认开启)
+  --osd-timestamp-format=FORMAT         strftime 格式 (默认 %Y年%m月%d日 %H：%M：%S, 用全角冒号)
+  --osd-fontsize=NUM                    推流字号 (0=自动, 默认 0)
+
+本地显示 OSD 参数 (独立, 与推流互不相干):
+  --display-osd-enable / --no-display-osd-enable   启用/关闭本地显示文字叠加 (默认开启)
+  --display-osd-text=TEXT                           本地显示固定文字 (默认 小宇智联)
+  --display-osd-timestamp / --no-display-osd-timestamp  本地显示时间戳开关 (默认开启)
+  --display-osd-timestamp-format=FORMAT             本地显示时间戳格式
+  --display-osd-fontsize=NUM                        本地显示字号 (0=自动, 默认 0)
+  --display-osd-font=FONT                           本地显示字体 (pango 字体名, 默认 Sans)
+  本地显示 OSD 用 clockoverlay+textoverlay, 叠加在旋转前画面并随主画面一起旋转
 
 其他:
   --rtsp-url=URL --force-modesetting=VAL
@@ -149,17 +212,35 @@ sub load_config {
         DISPLAY_CONNECTOR_NAME => "",
         CAPTURE_WIDTH        => 2560,
         CAPTURE_HEIGHT       => 1440,
-        CAPTURE_FPS          => 60,
+        CAPTURE_FPS          => 30,
         ENCODER_CODEC        => "h264_rkmpp",
-        ENCODER_BITRATE      => "8M",
-        ENCODER_GOP          => "auto",
+        ENCODER_BITRATE      => "16M",
+        ENCODER_GOP          => "60",
         ENCODER_EXTRA        => "",
+        ENCODER_RC_MODE      => "CBR",
         RTSP_URL             => "rtsp://127.0.0.1:8554/live/0",
         FORCE_MODESETTING    => "false",
-    );
+        AUDIO_ENABLE         => 1,
+        AUDIO_DEVICE         => "default",
+        AUDIO_SAMPLERATE     => 48000,
+        AUDIO_CHANNELS       => 1,
+        AUDIO_BITRATE        => "128k",
+        OSD_ENABLE           => 1,
+        OSD_FONT             => "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        OSD_TEXT             => "小宇智联",
+        OSD_TIMESTAMP        => 1,
+        OSD_TIMESTAMP_FORMAT => "%Y年%m月%d日 %H：%M：%S",
+        OSD_FONTSIZE         => 0,
+        DISPLAY_OSD_ENABLE         => 1,
+        DISPLAY_OSD_TEXT           => "小宇智联",
+        DISPLAY_OSD_TIMESTAMP      => 1,
+        DISPLAY_OSD_TIMESTAMP_FORMAT => "%Y年%m月%d日 %H：%M：%S",
+        DISPLAY_OSD_FONTSIZE       => 0,
+        DISPLAY_OSD_FONT           => "Sans",
+);
 
-    my %is_num  = map { $_ => 1 } qw(DISPLAY_WIDTH DISPLAY_HEIGHT CAPTURE_WIDTH CAPTURE_HEIGHT CAPTURE_FPS DISPLAY_CONNECTOR_ID);
-    my %is_bool = map { $_ => 1 } qw(DISPLAY_ENABLE STREAM_ENABLE RESTART_3A WAIT_3A);
+    my %is_num  = map { $_ => 1 } qw(DISPLAY_WIDTH DISPLAY_HEIGHT CAPTURE_WIDTH CAPTURE_HEIGHT CAPTURE_FPS DISPLAY_CONNECTOR_ID AUDIO_SAMPLERATE AUDIO_CHANNELS DISPLAY_OSD_FONTSIZE OSD_FONTSIZE);
+    my %is_bool = map { $_ => 1 } qw(DISPLAY_ENABLE STREAM_ENABLE RESTART_3A WAIT_3A AUDIO_ENABLE OSD_ENABLE OSD_TIMESTAMP DISPLAY_OSD_ENABLE DISPLAY_OSD_TIMESTAMP);
 
     if (-f $file) {
         open my $fh, '<', $file or die "无法打开 $file: $!";
@@ -206,8 +287,26 @@ sub load_config {
         encoder_bitrate       => 'ENCODER_BITRATE',
         encoder_gop           => 'ENCODER_GOP',
         encoder_extra         => 'ENCODER_EXTRA',
+        encoder_rc_mode       => 'ENCODER_RC_MODE',
         rtsp_url              => 'RTSP_URL',
         force_modesetting     => 'FORCE_MODESETTING',
+        audio_enable          => 'AUDIO_ENABLE',
+        audio_device          => 'AUDIO_DEVICE',
+        audio_samplerate      => 'AUDIO_SAMPLERATE',
+        audio_channels        => 'AUDIO_CHANNELS',
+        audio_bitrate         => 'AUDIO_BITRATE',
+        osd_enable            => 'OSD_ENABLE',
+        osd_text              => 'OSD_TEXT',
+        osd_font              => 'OSD_FONT',
+        osd_timestamp         => 'OSD_TIMESTAMP',
+        osd_timestamp_format  => 'OSD_TIMESTAMP_FORMAT',
+        osd_fontsize          => 'OSD_FONTSIZE',
+        display_osd_enable    => 'DISPLAY_OSD_ENABLE',
+        display_osd_text      => 'DISPLAY_OSD_TEXT',
+        display_osd_timestamp => 'DISPLAY_OSD_TIMESTAMP',
+        display_osd_timestamp_format => 'DISPLAY_OSD_TIMESTAMP_FORMAT',
+        display_osd_fontsize  => 'DISPLAY_OSD_FONTSIZE',
+        display_osd_font      => 'DISPLAY_OSD_FONT',
     );
 
     foreach my $ck (keys %$cmdline) {
@@ -583,36 +682,211 @@ sub resolve_display_connector {
     return $selected;
 }
 
-sub encoder_build_params {
-    my ($codec, $bitrate, $gop, $extra, $fps) = @_;
-    my $params = "";
+# ------------------------------------------------------------------------------
+# 编码参数自动计算辅助子程序
+# ------------------------------------------------------------------------------
 
-    # 比特率参数
-    if ($bitrate =~ /^(\d+)([KkMm])$/) {
-        my ($val, $unit) = ($1, $2);
-        $unit = uc($unit);
-        $params .= " -b:v ${val}${unit} -maxrate ${val}${unit} -bufsize " . (2 * $val) . "${unit}";
-    } elsif ($bitrate =~ /^(\d+)$/) {
-        $params .= " -b:v ${bitrate}K -maxrate ${bitrate}K -bufsize " . (2 * $bitrate) . "K";
+# 解析目标码率字符串 -> kbps 数值 (如 "16M"->16000, "8000K"->8000, "8000"->8000)
+sub parse_bitrate {
+    my ($br) = @_;
+    if ($br =~ /^(\d+)\s*([KkMm])$/) {
+        my ($v, $u) = ($1, uc($2));
+        return ($u eq "M") ? $v * 1000 : $v;
+    }
+    return $br + 0;   # 纯数字默认 Kbps
+}
+
+# kbps 数值格式化为可读单位 (整 M 用 M, 否则用 K)
+sub fmt_kbps {
+    my ($kbps) = @_;
+    $kbps = int($kbps + 0.5);
+    return ($kbps % 1000 == 0 && $kbps >= 1000) ? int($kbps / 1000) . "M" : "${kbps}K";
+}
+
+# H.264 level 按分辨率自动推导
+sub h264_auto_level {
+    my ($w, $h) = @_;
+    return "4.0" if $w <= 1280 && $h <= 720;
+    return "4.2" if $w <= 1920 && $h <= 1088;
+    return "5.0" if $w <= 2560 && $h <= 1440;
+    return "5.1";
+}
+
+# HEVC level 按分辨率自动推导
+sub hevc_auto_level {
+    my ($w, $h) = @_;
+    return "4.1" if $w <= 1920 && $h <= 1080;
+    return "5.0" if $w <= 2560 && $h <= 1440;
+    return "5.1";
+}
+
+# QP 参数按目标码率档位自动推导 (防马赛克: qp_max 越小越防块效应)
+sub auto_qp {
+    my ($kbps) = @_;
+    return (22, 10, 30) if $kbps >= 12000;   # 高质量档
+    return (24, 10, 33) if $kbps >= 6000;    # 中高质量档
+    return (26, 12, 36) if $kbps >= 3000;    # 标准档
+    return (28, 14, 40);                      # 低码率档
+}
+
+sub encoder_build_params {
+    my ($codec, $bitrate, $gop, $extra, $fps, $rcmode, $w, $h) = @_;
+
+    # 码率模式归一化 (CBR/VBR/AVBR), 默认 CBR (防马赛克最稳)
+    $rcmode = uc($rcmode || "CBR");
+    $rcmode = "CBR" unless $rcmode =~ /^(?:CBR|VBR|AVBR)$/;
+
+    my $target = parse_bitrate($bitrate);   # kbps
+    $target = 12000 if $target <= 0;        # 兜底
+
+    # ---- 码率边界自动计算 ----
+    my ($min, $max, $buf);
+    if ($rcmode eq "CBR") {
+        ($min, $max, $buf) = ($target, $target, $target);
+    } elsif ($rcmode eq "VBR") {
+        ($min, $max, $buf) = (int($target * 0.5), int($target * 1.5), int($target * 3));
+    } else { # AVBR
+        ($min, $max, $buf) = (0, int($target * 1.5), int($target * 3));
     }
 
-    # GOP - 必须为数值, h264_rkmpp 不支持 "auto"
-    my $gop_val = 60;
-    if ($gop =~ /^\d+$/)    { $gop_val = $gop; }
-    elsif ($gop eq "auto")  { $gop_val = $fps * 2; }
+    my $params = " -b:v " . fmt_kbps($target) . " -maxrate " . fmt_kbps($max) . " -bufsize " . fmt_kbps($buf);
+    $params .= " -minrate " . fmt_kbps($min) if $min > 0;
+
+    # ---- GOP: auto -> fps*2 (2 秒关键帧) ----
+    my $gop_val = ($gop =~ /^\d+$/) ? $gop : $fps * 2;
     $params .= " -g $gop_val";
 
-    # 编码器类型相关参数
+    # ---- QP / level / profile 自动推导 ----
+    my ($qpi, $qpmn, $qpmx) = auto_qp($target);
+
     if ($codec eq "h264_rkmpp") {
-        $params .= " -rc_mode VBR -level 4.2 -profile high -coder cabac -8x8dct 1";
+        my $lv = h264_auto_level($w, $h);
+        $params .= " -rc_mode ${rcmode} -profile high -level $lv -qp_init $qpi -qp_min $qpmn -qp_max $qpmx";
     } elsif ($codec eq "hevc_rkmpp") {
-        $params .= " -rc_mode VBR -level 5.1 -tier main";
+        my $lv = hevc_auto_level($w, $h);
+        $params .= " -rc_mode ${rcmode} -level $lv -tier main -qp_init $qpi -qp_min $qpmn -qp_max $qpmx";
     }
 
-    # 额外参数
+    my $lv = ($codec eq "hevc_rkmpp") ? hevc_auto_level($w, $h) : h264_auto_level($w, $h);
+    print "📐 编码自动参数: rc=${rcmode} 目标=" . fmt_kbps($target)
+        . " 边界=" . ($min > 0 ? fmt_kbps($min) . "-" : "~") . fmt_kbps($max)
+        . " GOP=${gop_val} QP=${qpmn}/${qpi}/${qpmx} level=${lv}\n";
+
+    # ---- 高级自定义参数: 追加末尾, 后出现的同名参数覆盖自动值 ----
     $params .= " $extra" if $extra;
 
     return $params;
+}
+
+sub audio_build_params {
+    my ($enable, $device, $samplerate, $channels, $bitrate) = @_;
+
+    unless ($enable) {
+        print "⏭️ 音频推流已关\n";
+        return ("", "", "");
+    }
+
+    # 注意: ffmpeg 的 alsa 输入在 RV1126 ACodec 上不可用 (Cannot allocate memory),
+    # 因此改用 arecord (已验证可用) 采集, 经管道以原始 PCM 输入 ffmpeg
+    print "🎙️ 音频输入: ${device} ${samplerate}Hz ${channels}ch (AAC ${bitrate})\n";
+
+    my $pipe = "arecord -D ${device} -f S16_LE -r ${samplerate} -c ${channels} | ";
+    my $ain  = " -f s16le -ar ${samplerate} -ac ${channels} -i -";
+    my $aout = " -c:a aac -b:a ${bitrate}";
+
+    return ($pipe, $ain, $aout);
+}
+
+sub osd_build_vf {
+    my ($enable, $font, $text, $ts_enable, $ts_format, $fontsize, $w, $h, $fps) = @_;
+
+    # 基础帧率滤镜
+    my $vf = "fps=${fps}";
+
+    unless ($enable) {
+        print "⏭️ OSD 文字叠加已关\n";
+        return $vf;
+    }
+
+    # 字号: 0=自动 (推流高度 1/36, 最小 20px; 2K->40, 1080->30), >0 使用固定值
+    $fontsize = ($fontsize && $fontsize > 0) ? $fontsize : int($h / 36);
+    $fontsize = 20 if $fontsize < 20;
+
+    my $pad = int($fontsize / 2);          # 边距 = 字号一半
+    my $bw  = int($fontsize / 8) + 1;      # 描边宽度
+    print "🖋️  OSD: 文字 \"${text}\" 字号=${fontsize}px 字体=${font}\n";
+
+    # drawtext 的 %{localtime\:...} 只需转义 localtime 后的第一个冒号,
+    # 格式串内部冒号作为 strftime 格式原样保留 (见 ffmpeg drawtext 官方示例)
+    my $fts = $ts_format;
+
+    my @draws;
+
+    if ($text ne '') {
+        push @draws, sprintf(
+            "drawtext=fontfile='%s':text='%s':x=%d:y=%d:fontsize=%d:fontcolor=white:borderw=%d:bordercolor=black\@0.6",
+            $font, $text, $pad, $pad, $fontsize, $bw,
+        );
+    }
+
+    if ($ts_enable) {
+        push @draws, sprintf(
+            "drawtext=fontfile='%s':text='%%{localtime\\:%s}':x=w-tw-%d:y=%d:fontsize=%d:fontcolor=white:borderw=%d:bordercolor=black\@0.6",
+            $font, $fts, $pad, $pad, $fontsize, $bw,
+        );
+    }
+
+    # 组合滤镜链
+    $vf .= "," . join(",", @draws) if @draws;
+
+    return $vf;
+}
+
+sub gst_osd_build {
+    my ($enable, $text, $ts_enable, $ts_format, $fontsize, $font, $w, $h) = @_;
+
+    unless ($enable) {
+        print "⏭️ 本地显示 OSD 已关\n";
+        return "";
+    }
+
+    # 字号: 0=自动 (较短边/48, 最小10), >0 使用固定值
+    my $short = $w < $h ? $w : $h;
+    my $auto  = int($short / 48);
+    $auto = 10 if $auto < 10;
+    my $fs = ($fontsize && $fontsize > 0) ? $fontsize : $auto;
+
+    my $gst = "";
+    my $font_name = ($font && $font ne '') ? $font : "Sans";
+    my $font_desc = "${font_name} ${fs}";
+
+    # 说明: 本地显示主画面旋转 270 度 (videoflip 90l), OSD 叠加在旋转前画面并随画面旋转.
+    # 经实机反馈与像素实测校准, 最终屏幕角位与 flip 前 valignment/halignment 直接对应
+    # (top->上, bottom->下, left->左, right->右), 故:
+    #   固定文字期望屏幕左上角 -> valignment=top halignment=left;
+    #   时间戳期望屏幕右上角 -> valignment=top halignment=right.
+    # deltay 负值=向上偏移 (旋转后方向), 用于把文字再上移约一个字高度贴近屏幕顶部.
+
+    my $dy = -14;   # 上移约一个字高度 (字号10px时约1.4字高)
+
+    # 右上角时间戳 (期望屏幕右上角)
+    if ($ts_enable && $ts_format ne '') {
+        $gst .= " ! clockoverlay valignment=top halignment=right "
+              . "font-desc=\"${font_desc}\" time-format=\"${ts_format}\" shaded-background=true deltay=${dy}";
+    }
+
+    # 左上角固定文字 (期望屏幕左上角)
+    if ($text ne '') {
+        $gst .= " ! textoverlay text=\"${text}\" valignment=top halignment=left "
+              . "font-desc=\"${font_desc}\" shaded-background=true deltay=${dy}";
+    }
+
+    if ($gst ne '') {
+        print "🖥️  本地显示 OSD: 文字=\"${text}\" 时间戳=" . ($ts_enable ? "ON" : "OFF")
+            . " 字号=${fs}px\n";
+    }
+
+    return $gst;
 }
 
 sub show_status {
@@ -679,8 +953,11 @@ my ($R3A, $W3A)   = ($CFG{RESTART_3A}, $CFG{WAIT_3A});
 my ($DW, $DH, $DR) = ($CFG{DISPLAY_WIDTH}, $CFG{DISPLAY_HEIGHT}, $CFG{DISPLAY_ROTATE});
 my ($DCI, $DCN)   = ($CFG{DISPLAY_CONNECTOR_ID}, $CFG{DISPLAY_CONNECTOR_NAME});
 my ($CW, $CH, $CFPS) = ($CFG{CAPTURE_WIDTH}, $CFG{CAPTURE_HEIGHT}, $CFG{CAPTURE_FPS});
-my ($EC, $EB, $EG, $EE) = ($CFG{ENCODER_CODEC}, $CFG{ENCODER_BITRATE}, $CFG{ENCODER_GOP}, $CFG{ENCODER_EXTRA});
+my ($EC, $EB, $EG, $EE, $ERM) = ($CFG{ENCODER_CODEC}, $CFG{ENCODER_BITRATE}, $CFG{ENCODER_GOP}, $CFG{ENCODER_EXTRA}, $CFG{ENCODER_RC_MODE});
 my ($RTSP, $FM)   = ($CFG{RTSP_URL}, $CFG{FORCE_MODESETTING});
+my ($AE, $ADEV, $ARATE, $ACH, $ABIT) = ($CFG{AUDIO_ENABLE}, $CFG{AUDIO_DEVICE}, $CFG{AUDIO_SAMPLERATE}, $CFG{AUDIO_CHANNELS}, $CFG{AUDIO_BITRATE});
+my ($OE, $OFONT, $OTEXT, $OTS, $OTSF, $OFS) = ($CFG{OSD_ENABLE}, $CFG{OSD_FONT}, $CFG{OSD_TEXT}, $CFG{OSD_TIMESTAMP}, $CFG{OSD_TIMESTAMP_FORMAT}, $CFG{OSD_FONTSIZE});
+my ($DOE, $DOTEXT, $DOTS, $DOTSF, $DOFS, $DOFONT) = ($CFG{DISPLAY_OSD_ENABLE}, $CFG{DISPLAY_OSD_TEXT}, $CFG{DISPLAY_OSD_TIMESTAMP}, $CFG{DISPLAY_OSD_TIMESTAMP_FORMAT}, $CFG{DISPLAY_OSD_FONTSIZE}, $CFG{DISPLAY_OSD_FONT});
 my $LOCK = $opt{lockfile};
 
 my $FF_PAT  = build_pattern("ffmpeg", $FF_DEV);
@@ -715,6 +992,9 @@ sub stop_apps {
         sleep 1;
         proc_kill_match(9, $GST_PAT);
     }
+
+    # 兜底清理音频采集进程 (arecord 由 ffmpeg 被杀后的 SIGPIPE 带出)
+    if ($AE) { proc_kill_match(9, "arecord"); }
 
     print $ffk || $gstk ? "✅ 已清理\n" : "⚠️ 无进程\n";
 
@@ -782,9 +1062,16 @@ if ($DE) {
     my $kmssink_opts = "sync=false force-modesetting=${FM}${KMSSINK_OPTS_EXTRA}";
     print "1. 启动本地显示路径 ($GST_DEV)...\n";
 
+    # 本地显示 OSD (独立配置, 与推流互不相干)
+    my $gst_osd = gst_osd_build($DOE, $DOTEXT, $DOTS, $DOTSF, $DOFS, $DOFONT, $VW, $VH);
+
+    # OSD 放在 videoflip 之前, 使文字随主画面一起旋转 (与画面方向一致)
+    # 注意: $FLIP 前需保留空格, 避免与 OSD 滤镜串拼接成 "true! videoflip" 导致解析失败
     $gst_cmd = "gst-launch-1.0 v4l2src device=$GST_DEV io-mode=4 "
              . "! video/x-raw,width=$VW,height=$VH,format=NV12 "
-             . "$FLIP ! kmssink $kmssink_opts";
+             . $gst_osd
+             . " $FLIP"
+             . " ! kmssink $kmssink_opts";
 
     ($pid_gst, undef) = gst_display_start($gst_cmd);
 
@@ -802,11 +1089,24 @@ if ($DE) {
 if ($SE) {
     print "2. 启动推流路径 ($FF_DEV)...\n";
 
-    $enc_params = encoder_build_params($EC, $EB, $EG, $EE, $CFPS);
+    $enc_params = encoder_build_params($EC, $EB, $EG, $EE, $CFPS, $ERM, $CW, $CH);
 
-    $ff_cmd = "ffmpeg -f v4l2 -framerate $CFPS -video_size \"${CW}x${CH}\" "
-            . "-pix_fmt nv12 -i $FF_DEV -vf \"fps=${CFPS}\" "
-            . "-vcodec $EC -r $CFPS $enc_params -f rtsp \"$RTSP\"";
+    # 音频参数 (开关可控): arecord 采集经管道输入 ffmpeg
+    my ($audio_pipe, $audio_in, $audio_out) = audio_build_params($AE, $ADEV, $ARATE, $ACH, $ABIT);
+
+    # OSD 滤镜链: fps + 左上角固定文字 + 右上角时间戳, 字号按分辨率自动计算
+    my $vf = osd_build_vf($OE, $OFONT, $OTEXT, $OTS, $OTSF, $OFS, $CW, $CH, $CFPS);
+
+    $ff_cmd = $audio_pipe
+            . "ffmpeg -f v4l2 -framerate $CFPS -video_size \"${CW}x${CH}\" "
+            . "-pix_fmt nv12 -i $FF_DEV"
+            . $audio_in
+            . " -vf \"${vf}\" "
+            . "-vcodec $EC -r $CFPS $enc_params"
+            . $audio_out
+            . " -f rtsp \"$RTSP\"";
+
+    print "🎬 FFmpeg 命令: $ff_cmd\n";
 
     my $errf = "/tmp/ffmpeg_stderr.log";
     unlink $errf;
@@ -814,13 +1114,16 @@ if ($SE) {
     sleep 2;
 
     if (proc_alive($pid_ff) && -f $errf) {
-        open my $fh, '<', $errf or next;
-        my $c = do { local $/; <$fh> };
-        close $fh;
+        if (open my $fh, '<', $errf) {
+            my $c = do { local $/; <$fh> };
+            close $fh;
 
-        if ($c =~ /(?:Error|Failed|Cannot open|No such|Permission denied|Device or resource busy)/i) {
-            print "⚠️ FFmpeg stderr有错误:\n";
-            print "  | $_\n" for split "\n", $c;
+            if ($c =~ /(?:Error|Failed|Cannot open|No such|Permission denied|Device or resource busy)/i) {
+                print "⚠️ FFmpeg stderr有错误:\n";
+                print "  | $_\n" for split "\n", $c;
+            }
+        } else {
+            warn "⚠️ 无法读取 $errf: $!";
         }
     }
 } else {
@@ -836,7 +1139,9 @@ if ($DE) {
 if ($SE) {
     print "👉 推流: ${FF_DEV} ${CW}x${CH}\n"
         . "👉 RTSP: ${RTSP}\n"
-        . "👉 编码参数: ${enc_params}\n";
+        . "👉 编码参数: ${enc_params}\n"
+        . "👉 音频: " . ($AE ? "ON (${ADEV} ${ARATE}Hz)" : "OFF") . "\n"
+        . "👉 OSD: " . ($OE ? "ON (文字=\"${OTEXT}\")" : "OFF") . "\n";
 }
 
 # ============================================================================

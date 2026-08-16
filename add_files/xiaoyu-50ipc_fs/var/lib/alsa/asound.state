@@ -1,0 +1,1021 @@
+state.rockchipacodec {
+	control.1 {
+		iface MIXER
+		name 'SAI2 Transmit Edge Shift'
+		value 'Shift 1 Edge'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Normal
+			item.1 'Shift 1 Edge'
+		}
+	}
+	control.2 {
+		iface MIXER
+		name 'SAI2 Transmit Store Justified Mode'
+		value 'Right J'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'Right J'
+			item.1 'Left J'
+		}
+	}
+	control.3 {
+		iface MIXER
+		name 'SAI2 Transmit First Bit Mode'
+		value MSB
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 MSB
+			item.1 LSB
+		}
+	}
+	control.4 {
+		iface MIXER
+		name 'SAI2 Transmit Valid Data Justified'
+		value 'Left J'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'Right J'
+			item.1 'Left J'
+		}
+	}
+	control.5 {
+		iface MIXER
+		name 'SAI2 Transmit Slot Bit Width'
+		value '32'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 '0'
+			item.1 '0'
+			item.2 '0'
+			item.3 '0'
+			item.4 '0'
+			item.5 '0'
+			item.6 '0'
+			item.7 '8'
+			item.8 '9'
+			item.9 '10'
+			item.10 '11'
+			item.11 '12'
+			item.12 '13'
+			item.13 '14'
+			item.14 '15'
+			item.15 '16'
+			item.16 '17'
+			item.17 '18'
+			item.18 '19'
+			item.19 '20'
+			item.20 '21'
+			item.21 '22'
+			item.22 '23'
+			item.23 '24'
+			item.24 '25'
+			item.25 '26'
+			item.26 '27'
+			item.27 '28'
+			item.28 '29'
+			item.29 '30'
+			item.30 '31'
+			item.31 '32'
+		}
+	}
+	control.6 {
+		iface MIXER
+		name 'SAI2 Receive Edge Shift'
+		value 'Shift 1 Edge'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Normal
+			item.1 'Shift 1 Edge'
+		}
+	}
+	control.7 {
+		iface MIXER
+		name 'SAI2 Receive Store Justified Mode'
+		value 'Right J'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'Right J'
+			item.1 'Left J'
+		}
+	}
+	control.8 {
+		iface MIXER
+		name 'SAI2 Receive First Bit Mode'
+		value MSB
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 MSB
+			item.1 LSB
+		}
+	}
+	control.9 {
+		iface MIXER
+		name 'SAI2 Receive Valid Data Justified'
+		value 'Left J'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'Right J'
+			item.1 'Left J'
+		}
+	}
+	control.10 {
+		iface MIXER
+		name 'SAI2 Receive Slot Bit Width'
+		value '32'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 '0'
+			item.1 '0'
+			item.2 '0'
+			item.3 '0'
+			item.4 '0'
+			item.5 '0'
+			item.6 '0'
+			item.7 '8'
+			item.8 '9'
+			item.9 '10'
+			item.10 '11'
+			item.11 '12'
+			item.12 '13'
+			item.13 '14'
+			item.14 '15'
+			item.15 '16'
+			item.16 '17'
+			item.17 '18'
+			item.18 '19'
+			item.19 '20'
+			item.20 '21'
+			item.21 '22'
+			item.22 '23'
+			item.23 '24'
+			item.24 '25'
+			item.25 '26'
+			item.26 '27'
+			item.27 '28'
+			item.28 '29'
+			item.29 '30'
+			item.30 '31'
+			item.31 '32'
+		}
+	}
+	control.11 {
+		iface MIXER
+		name 'SAI2 Frame Edge Switch'
+		value 'Dual Edge'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'Rising Edge'
+			item.1 'Dual Edge'
+		}
+	}
+	control.12 {
+		iface MIXER
+		name 'SAI2 Frame Sync Pulse Width'
+		value 'Half Frame Width'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'One Bclk Width'
+			item.1 'One Slot Width'
+			item.2 'Half Frame Width'
+		}
+	}
+	control.13 {
+		iface MIXER
+		name 'SAI2 Frame Width Ratio'
+		value '1'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 '1'
+			item.1 '2'
+			item.2 '3'
+			item.3 '4'
+			item.4 '5'
+			item.5 '6'
+			item.6 '7'
+			item.7 '8'
+		}
+	}
+	control.14 {
+		iface MIXER
+		name 'SAI2 Master Slave Mode Select'
+		value Master
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Slave
+			item.1 Master
+		}
+	}
+	control.15 {
+		iface MIXER
+		name 'SAI2 Sclk Polarity'
+		value Normal
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Normal
+			item.1 Inverted
+		}
+	}
+	control.16 {
+		iface MIXER
+		name 'SAI2 Frame Sync Polarity'
+		value Normal
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Normal
+			item.1 Inverted
+		}
+	}
+	control.17 {
+		iface MIXER
+		name 'SAI2 Transmit Clk Auto Gate Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.18 {
+		iface MIXER
+		name 'SAI2 Transmit Frame Shift Left Select'
+		value 0
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 2'
+			dbmin 0
+			dbmax 4
+			dbvalue.0 0
+		}
+	}
+	control.19 {
+		iface MIXER
+		name 'SAI2 Transmit Frame Shift Right Select'
+		value 2
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 8192'
+			dbmin 0
+			dbmax 67108864
+			dbvalue.0 16384
+		}
+	}
+	control.20 {
+		iface MIXER
+		name 'SAI2 Receive Frame Shift Right Select'
+		value 2
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 8192'
+			dbmin 0
+			dbmax 67108864
+			dbvalue.0 16384
+		}
+	}
+	control.21 {
+		iface MIXER
+		name 'SAI2 Data Debug Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.22 {
+		iface MIXER
+		name 'SAI2 Transmit Start Mode Sel'
+		value Standalone
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Standalone
+			item.1 Chained
+		}
+	}
+	control.23 {
+		iface MIXER
+		name 'SAI2 Receive Start Mode Sel'
+		value Standalone
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Standalone
+			item.1 Chained
+		}
+	}
+	control.24 {
+		iface MIXER
+		name 'SAI2 Transmit SDOx Select'
+		value Auto
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Auto
+			item.1 SDOx1
+			item.2 SDOx2
+			item.3 SDOx3
+			item.4 SDOx4
+		}
+	}
+	control.25 {
+		iface MIXER
+		name 'SAI2 Receive SDIx Select'
+		value Auto
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Auto
+			item.1 SDIx1
+			item.2 SDIx2
+			item.3 SDIx3
+			item.4 SDIx4
+		}
+	}
+	control.26 {
+		iface MIXER
+		name 'SAI2 Receive Mono Slot Select'
+		value 0
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 128'
+			dbmin 0
+			dbmax 16384
+			dbvalue.0 0
+		}
+	}
+	control.27 {
+		iface MIXER
+		name 'SAI2 Receive Mono Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.28 {
+		iface MIXER
+		name 'SAI2 Transmit Mono Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.29 {
+		iface MIXER
+		name 'SAI2 SDI3 Loopback I2S LR Channel Sel'
+		value 'L:MIC R:LP'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'L:MIC R:LP'
+			item.1 'L:LP R:MIC'
+		}
+	}
+	control.30 {
+		iface MIXER
+		name 'SAI2 SDI2 Loopback I2S LR Channel Sel'
+		value 'L:LP R:MIC'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'L:MIC R:LP'
+			item.1 'L:LP R:MIC'
+		}
+	}
+	control.31 {
+		iface MIXER
+		name 'SAI2 SDI1 Loopback I2S LR Channel Sel'
+		value 'L:MIC R:LP'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'L:MIC R:LP'
+			item.1 'L:LP R:MIC'
+		}
+	}
+	control.32 {
+		iface MIXER
+		name 'SAI2 SDI0 Loopback I2S LR Channel Sel'
+		value 'L:MIC R:LP'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'L:MIC R:LP'
+			item.1 'L:LP R:MIC'
+		}
+	}
+	control.33 {
+		iface MIXER
+		name 'SAI2 SDI3 Loopback I2S LR Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.34 {
+		iface MIXER
+		name 'SAI2 SDI2 Loopback I2S LR Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.35 {
+		iface MIXER
+		name 'SAI2 SDI1 Loopback I2S LR Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.36 {
+		iface MIXER
+		name 'SAI2 SDI0 Loopback I2S LR Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.37 {
+		iface MIXER
+		name 'SAI2 SDI3 Loopback Src Select'
+		value 'From SDO0'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From SDO0'
+			item.1 'From SDO1'
+			item.2 'From SDO2'
+			item.3 'From SDO3'
+		}
+	}
+	control.38 {
+		iface MIXER
+		name 'SAI2 SDI2 Loopback Src Select'
+		value 'From SDO0'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From SDO0'
+			item.1 'From SDO1'
+			item.2 'From SDO2'
+			item.3 'From SDO3'
+		}
+	}
+	control.39 {
+		iface MIXER
+		name 'SAI2 SDI1 Loopback Src Select'
+		value 'From SDO0'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From SDO0'
+			item.1 'From SDO1'
+			item.2 'From SDO2'
+			item.3 'From SDO3'
+		}
+	}
+	control.40 {
+		iface MIXER
+		name 'SAI2 SDI0 Loopback Src Select'
+		value 'From SDO0'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From SDO0'
+			item.1 'From SDO1'
+			item.2 'From SDO2'
+			item.3 'From SDO3'
+		}
+	}
+	control.41 {
+		iface MIXER
+		name 'SAI2 SDI3 Loopback Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.42 {
+		iface MIXER
+		name 'SAI2 SDI2 Loopback Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.43 {
+		iface MIXER
+		name 'SAI2 SDI1 Loopback Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.44 {
+		iface MIXER
+		name 'SAI2 SDI0 Loopback Switch'
+		value Disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Disable
+			item.1 Enable
+		}
+	}
+	control.45 {
+		iface MIXER
+		name 'SAI2 Sync Out Switch'
+		value 'From CRU'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From CRU'
+			item.1 'From IO'
+		}
+	}
+	control.46 {
+		iface MIXER
+		name 'SAI2 Sync In Switch'
+		value 'From IO'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From IO'
+			item.1 'From Sync Port'
+		}
+	}
+	control.47 {
+		iface MIXER
+		name 'SAI2 Receive PATH3 Source Select'
+		value 'From SDI3'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From SDI0'
+			item.1 'From SDI1'
+			item.2 'From SDI2'
+			item.3 'From SDI3'
+		}
+	}
+	control.48 {
+		iface MIXER
+		name 'SAI2 Receive PATH2 Source Select'
+		value 'From SDI2'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From SDI0'
+			item.1 'From SDI1'
+			item.2 'From SDI2'
+			item.3 'From SDI3'
+		}
+	}
+	control.49 {
+		iface MIXER
+		name 'SAI2 Receive PATH1 Source Select'
+		value 'From SDI1'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From SDI0'
+			item.1 'From SDI1'
+			item.2 'From SDI2'
+			item.3 'From SDI3'
+		}
+	}
+	control.50 {
+		iface MIXER
+		name 'SAI2 Receive PATH0 Source Select'
+		value 'From SDI0'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From SDI0'
+			item.1 'From SDI1'
+			item.2 'From SDI2'
+			item.3 'From SDI3'
+		}
+	}
+	control.51 {
+		iface MIXER
+		name 'SAI2 Transmit SDO3 Source Select'
+		value 'From PATH3'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From PATH0'
+			item.1 'From PATH1'
+			item.2 'From PATH2'
+			item.3 'From PATH3'
+		}
+	}
+	control.52 {
+		iface MIXER
+		name 'SAI2 Transmit SDO2 Source Select'
+		value 'From PATH2'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From PATH0'
+			item.1 'From PATH1'
+			item.2 'From PATH2'
+			item.3 'From PATH3'
+		}
+	}
+	control.53 {
+		iface MIXER
+		name 'SAI2 Transmit SDO1 Source Select'
+		value 'From PATH1'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From PATH0'
+			item.1 'From PATH1'
+			item.2 'From PATH2'
+			item.3 'From PATH3'
+		}
+	}
+	control.54 {
+		iface MIXER
+		name 'SAI2 Transmit SDO0 Source Select'
+		value 'From PATH0'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 'From PATH0'
+			item.1 'From PATH1'
+			item.2 'From PATH2'
+			item.3 'From PATH3'
+		}
+	}
+	control.55 {
+		iface MIXER
+		name 'SAI2 Clk Auto Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.56 {
+		iface PCM
+		name 'SAI2 PCM Read Wait Time MS'
+		value 0
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 10000 (step 1)'
+		}
+	}
+	control.57 {
+		iface PCM
+		name 'SAI2 PCM Write Wait Time MS'
+		value 0
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 10000 (step 1)'
+		}
+	}
+	control.58 {
+		iface MIXER
+		name 'ACodec_LP HPF Cutoff'
+		value '243Hz'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 '3.79Hz'
+			item.1 '60Hz'
+			item.2 '243Hz'
+			item.3 '493Hz'
+		}
+	}
+	control.59 {
+		iface MIXER
+		name 'ACodec_LP HPF Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.60 {
+		iface MIXER
+		name 'ACodec_LP Digital Gain Volume'
+		value 127
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 127'
+			dbmin -9500
+			dbmax 25
+			dbvalue.0 25
+		}
+	}
+	control.61 {
+		iface MIXER
+		name 'ACodec_LP PGA Gain Volume'
+		value 15
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 31'
+			dbmin 0
+			dbmax 9300
+			dbvalue.0 4500
+		}
+	}
+	control.62 {
+		iface MIXER
+		name 'ACodec_LP ADC Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.63 {
+		iface MIXER
+		name 'ACodec HPF Cutoff'
+		value '243Hz'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 '3.79Hz'
+			item.1 '60Hz'
+			item.2 '243Hz'
+			item.3 '493Hz'
+		}
+	}
+	control.64 {
+		iface MIXER
+		name 'ACodec HPF Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.65 {
+		iface MIXER
+		name 'ACodec Digital Gain Volume'
+		value 127
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 127'
+			dbmin -9500
+			dbmax 25
+			dbvalue.0 25
+		}
+	}
+	control.66 {
+		iface MIXER
+		name 'ACodec PGA Gain Volume'
+		value 15
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 31'
+			dbmin 0
+			dbmax 9300
+			dbvalue.0 4500
+		}
+	}
+	control.67 {
+		iface MIXER
+		name 'ACodec ADC Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.68 {
+		iface MIXER
+		name 'DAC Digital Volume'
+		value.0 300
+		value.1 300
+		comment {
+			access 'read write'
+			type INTEGER
+			count 2
+			range '0 - 510'
+			dbmin -95625
+			dbmax 95625
+			dbvalue.0 16875
+			dbvalue.1 16875
+		}
+	}
+	control.69 {
+		iface MIXER
+		name 'DAC HPF Cutoff'
+		value '80Hz'
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 '80Hz'
+			item.1 '100Hz'
+			item.2 '120Hz'
+			item.3 '140Hz'
+		}
+	}
+	control.70 {
+		iface MIXER
+		name 'DAC HPF Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.71 {
+		iface MIXER
+		name 'Power Amplifier'
+		value On
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 Off
+			item.1 On
+		}
+	}
+	control.72 {
+		iface MIXER
+		name 'spk switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.73 {
+		iface MIXER
+		name 'hp switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.74 {
+		iface MIXER
+		name 'Headphone Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.75 {
+		iface MIXER
+		name 'Speaker Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.76 {
+		iface MIXER
+		name 'Main Mic Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.77 {
+		iface MIXER
+		name 'Headset Mic Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+}
