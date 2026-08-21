@@ -24,6 +24,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import signal
 import subprocess
 import sys
@@ -37,6 +38,7 @@ from urllib.parse import urlparse, parse_qs
 VERSION = "1.0.0"                    # 软件版本
 SERVICE = "capture.service"
 CONF_PATH = "/etc/capture.conf"
+CONF_DEFAULT = "/etc/capture.conf.default"   # 首次启动备份的默认配置
 CAPTURE_PL = "/usr/local/bin/capture.pl"
 CHART_JS_PATH = "/usr/local/www/chart.min.js"
 HTML_PAGE = "/usr/local/www/capture-webui.html"   # 前端页面 (独立文件)
@@ -399,6 +401,31 @@ def save_config(new_cfg):
     with open(CONF_PATH, "w") as f:
         f.write("\n".join(out) + "\n")
     return sorted(keys - matched)
+
+
+def ensure_default_config():
+    """首次启动备份: 若 capture.conf 存在且 .default 不存在, 复制为默认配置"""
+    try:
+        if os.path.exists(CONF_PATH) and not os.path.exists(CONF_DEFAULT):
+            shutil.copyfile(CONF_PATH, CONF_DEFAULT)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def restore_default_config():
+    """从默认配置恢复 /etc/capture.conf 并重启 capture.service; 返回 (ok, msg)"""
+    if not os.path.exists(CONF_DEFAULT):
+        return False, "默认配置不存在 (请先保存一次配置生成默认备份)"
+    try:
+        shutil.copyfile(CONF_DEFAULT, CONF_PATH)
+    except Exception as e:
+        return False, "恢复失败: %s" % e
+    res = service_action("restart")
+    if not res.get("ok"):
+        return False, "配置已恢复，但 capture.service 重启失败: %s" % res.get("err", "")
+    return True, "已恢复默认配置，capture.service 重启中（约3-5秒）"
 
 
 def config_schema_payload():
@@ -987,6 +1014,11 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": res["ok"], "added": added, "restart": res})
             return
 
+        if path == "/api/config/restore":
+            ok, msg = restore_default_config()
+            self._send_json(200, {"ok": ok, "msg": msg})
+            return
+
         self._send_json(404, {"error": "not found"})
 
 
@@ -998,6 +1030,8 @@ def main():
     ap.add_argument("--port", type=int, default=80, help="监听端口 (默认 80)")
     ap.add_argument("--bind", default="0.0.0.0", help="监听地址 (默认 0.0.0.0)")
     args = ap.parse_args()
+
+    ensure_default_config()   # 首次启动: 备份当前配置为默认配置
 
     server = ThreadingHTTPServer((args.bind, args.port), Handler)
 

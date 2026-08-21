@@ -25,6 +25,8 @@
     --ok-text: #86efac;       /* 状态/输出文字 */
     --warn: #fbbf24;          /* 告警色 */
     --success: #16a34a;       /* 成功/开启 */
+    --badge-off-bg: #64748b;  /* 关闭徽章背景 (深色主题) */
+    --badge-off-fg: #ffffff;  /* 关闭徽章文字 (深色主题) */
   }
   html[data-theme="light"] {
     --bg: #f1f5f9;
@@ -44,15 +46,23 @@
     --ok-text: #15803d;
     --warn: #b45309;
     --success: #16a34a;
+    --badge-off-bg: #e2e8f0;  /* 关闭徽章背景 (浅色主题: 浅灰底) */
+    --badge-off-fg: #475569;  /* 关闭徽章文字 (浅色主题: 深灰字) */
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: "Segoe UI", "Noto Sans CJK SC", "WenQuanYi Micro Hei", sans-serif;
          background: var(--bg); color: var(--text); min-height: 100vh; }
   a { color: var(--accent2); text-decoration: none; }
   button { cursor: pointer; border: none; border-radius: 6px; padding: 8px 14px;
-           font-size: 14px; transition: opacity .15s; }
+           font-size: 14px;
+           transition: opacity .15s, transform .08s, filter .08s, box-shadow .08s;
+           box-shadow: 0 1px 3px rgba(0,0,0,.25); }
   button:hover { opacity: .85; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
+  button:active { transform: translateY(1px) scale(0.97);
+                  filter: brightness(0.85);
+                  box-shadow: inset 0 2px 5px rgba(0,0,0,.35); }
+  button:disabled { opacity: .5; cursor: not-allowed;
+                    transform: none; filter: none; box-shadow: none; }
   .btn-primary { background: var(--accent); color: #fff; }
   .btn-success { background: var(--success); color: #fff; }
   .btn-danger  { background: #dc2626; color: #fff; }
@@ -92,7 +102,7 @@
   .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px;
                   font-size: 12px; font-weight: 600; }
   .badge-on  { background: var(--success); color: #fff; }
-  .badge-off { background: #64748b; color: #fff; }
+  .badge-off { background: var(--badge-off-bg); color: var(--badge-off-fg); }
   .kv { display: flex; justify-content: space-between; padding: 6px 0;
         border-bottom: 1px dashed var(--border); font-size: 14px; }
   .kv:last-child { border-bottom: none; }
@@ -261,10 +271,11 @@
         <div class="cfg-actions">
           <button class="btn-success" id="cfgSave">保存配置</button>
           <button class="btn-primary" id="cfgApply">保存并即时生效</button>
+          <button class="btn-warn" id="cfgRestore">恢复默认配置</button>
           <button class="btn-ghost" id="cfgReload">重新加载</button>
         </div>
         <p style="font-size:12px;color:#94a3b8;margin-top:10px">
-          "保存配置"仅写回 /etc/capture.conf（下次启动生效）；"保存并即时生效"会写回并重启 capture.service 立即应用。
+          "保存配置"仅写回 /etc/capture.conf（下次启动生效）；"保存并即时生效"会写回并重启 capture.service 立即应用；"恢复默认配置"将用 /etc/capture.conf.default 还原并重启（首次启动 webui 会自动备份默认配置）。
         </p>
       </div>
       <div class="card cfg-help-card">
@@ -398,6 +409,15 @@ async function refreshStatus() {
     $("st-pid").textContent = s.main_pid && s.main_pid !== "0" ? s.main_pid : "-";
     $("st-sub").textContent = s.sub_state || "-";
     $("st-time").textContent = s.start_time || "-";
+    // 按运行状态/自启状态同步按钮可用性
+    const setSvcDisabled = (action, disabled) => {
+      document.querySelectorAll('[data-svc="' + action + '"]').forEach((b) => { b.disabled = !!disabled; });
+    };
+    setSvcDisabled("start", s.active);        // 运行中禁用"启动"
+    setSvcDisabled("stop", !s.active);        // 未运行禁用"停止"
+    setSvcDisabled("restart", !s.active);     // 未运行禁用"重启"
+    setSvcDisabled("enable", s.enabled);      // 已启用禁用"开启自启"
+    setSvcDisabled("disable", !s.enabled);    // 未启用禁用"关闭自启"
     const onoff = (v) => (v === "1" || v === "true" || v === "yes") ? "ON" : "OFF";
     // 推流组
     $("ov-stream").textContent = onoff(o.stream);
@@ -593,14 +613,40 @@ function collectConfig() {
   return cfg;
 }
 
+/* 防重复: 禁用按钮并倒计时, 防止重启期间重复点击 */
+function lockBtn(btn, sec, label) {
+  if (!btn) return;
+  const orig = label || btn.textContent;
+  btn.disabled = true;
+  let left = sec;
+  btn.textContent = "处理中(" + left + "s)";
+  const iv = setInterval(() => {
+    left--;
+    if (left <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = orig; }
+    else btn.textContent = "处理中(" + left + "s)";
+  }, 1000);
+}
+
 $("cfgSave").onclick = async () => {
   const r = await api("/api/config/save", { method: "POST", body: JSON.stringify({ config: collectConfig() }) });
   toast(r.ok ? "已保存到 /etc/capture.conf" : "保存失败", r.ok);
 };
 $("cfgApply").onclick = async () => {
+  const btn = $("cfgApply");
+  btn.disabled = true;
   const r = await api("/api/config/apply", { method: "POST", body: JSON.stringify({ config: collectConfig() }) });
-  toast(r.ok ? "已保存并重启 capture.service" : "即时生效失败", r.ok);
-  setTimeout(refreshStatus, 3000);
+  toast(r.ok ? "已保存，capture.service 重启中（约3-5秒）" : "即时生效失败", r.ok);
+  if (r.ok) { lockBtn(btn, 5, "保存并即时生效"); setTimeout(refreshStatus, 3000); }
+  else btn.disabled = false;
+};
+$("cfgRestore").onclick = async () => {
+  if (!confirm("确定恢复为默认配置吗？\n当前配置将被 /etc/capture.conf.default 覆盖，capture.service 将重启（约3-5秒）。")) return;
+  const btn = $("cfgRestore");
+  btn.disabled = true;
+  const r = await api("/api/config/restore", { method: "POST" });
+  toast(r.ok ? r.msg : ("恢复失败: " + (r.msg || "")), r.ok);
+  if (r.ok) { lockBtn(btn, 5, "恢复默认配置"); setTimeout(() => { loadConfig(); refreshStatus(); }, 3000); }
+  else btn.disabled = false;
 };
 $("cfgReload").onclick = loadConfig;
 
