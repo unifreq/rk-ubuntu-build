@@ -115,6 +115,8 @@
   /* 配置表单 */
   .cfg-group { margin-bottom: 16px; }
   .cfg-group h4 { font-size: 14px; color: var(--warn); margin-bottom: 8px; }
+  .cfg-subgroup { margin: 12px 0 4px; font-size: 13px; color: #7dd3fc;
+                  border-left: 3px solid #7dd3fc; padding-left: 8px; }
   .sub-h { margin: 12px 0 4px; font-size: 13px; color: var(--title); border-bottom: 1px dashed var(--border); padding-bottom: 2px; }
   .cfg-layout { display: flex; gap: 16px; align-items: flex-start; }
   @media (max-width: 920px) { .cfg-layout { flex-direction: column; } }
@@ -204,7 +206,7 @@
 <!-- 主视图 -->
 <div id="mainView">
   <header>
-    <h1>小宇智联 · 采集管理控制台 <span class="ver">v1.0.0</span></h1>
+    <h1>小宇智联 · 采集管理控制台 <span class="ver">v1.1.0</span></h1>
     <div class="hdr-right">
       <button class="btn-ghost" id="themeBtn">浅色主题</button>
       <button class="btn-ghost" id="logoutBtn">退出登录</button>
@@ -213,6 +215,7 @@
 
   <nav class="tabs">
     <button data-tab="status" class="active">服务状态</button>
+    <button data-tab="hdr">HDR 开关</button>
     <button data-tab="config">参数配置</button>
     <button data-tab="monitor">资源监控</button>
   </nav>
@@ -260,6 +263,11 @@
         <div class="kv"><span>时间戳OSD</span><span id="ov-dosdts">-</span></div>
       </div>
     </div>
+  </section>
+
+  <!-- HDR 开关 -->
+  <section class="tab" id="tab-hdr">
+    <div id="hdrPageContent"></div>
   </section>
 
   <!-- 参数配置 -->
@@ -396,6 +404,7 @@ document.querySelectorAll("nav.tabs button").forEach((b) => {
     b.classList.add("active");
     $("tab-" + b.dataset.tab).classList.add("active");
     if (b.dataset.tab === "monitor") initCharts();
+    if (b.dataset.tab === "hdr") loadHdrPage();
   };
 });
 
@@ -485,38 +494,128 @@ function cfgControl(item) {
   return '<input type="' + (item.type === "int" ? "number" : "text") + '" data-key="' + item.key + '" value="' + esc(item.value || "") + '">';
 }
 
+/* 渲染一行配置项 */
+function cfgRowHtml(item) {
+  if (item.type === "hidden") return cfgControl(item);   // 隐藏字段不渲染行
+  return '<div class="cfg-row" data-help="' + esc(item.help || "") + '"><label>' + item.label + '</label>' + cfgControl(item) + '</div>';
+}
+
 function renderCfg() {
+  const form = $("cfgForm");
+  // 两级分组: 父组(group) -> 子组(subgroup, 空=直接项)
   const groups = {};
-  cfgSchema.forEach((item) => { (groups[item.group] = groups[item.group] || []).push(item); });
+  cfgSchema.forEach((item) => {
+    const g = item.group || "";
+    if (!groups[g]) groups[g] = {};
+    const sg = item.subgroup || "";
+    if (!groups[g][sg]) groups[g][sg] = [];
+    groups[g][sg].push(item);
+  });
   let html = "";
   for (const g in groups) {
     html += '<div class="cfg-group"><h4>' + g + '</h4>';
-    groups[g].forEach((item) => {
-      if (item.type === "hidden") { html += cfgControl(item); return; }   // 隐藏字段不渲染行
-      html += '<div class="cfg-row" data-help="' + esc(item.help || "") + '"><label>' + item.label + '</label>' + cfgControl(item) + '</div>';
-    });
+    for (const sg in groups[g]) {
+      if (sg) html += '<h5 class="cfg-subgroup">' + sg + '</h5>';
+      groups[g][sg].forEach((item) => { html += cfgRowHtml(item); });
+    }
     html += '</div>';
   }
-  $("cfgForm").innerHTML = html;
-  syncResSelect();
+  form.innerHTML = html;
 }
 
-/* 分辨率联动: 根据对应 WIDTH/HEIGHT 设置 CAPTURE_RES / DISPLAY_RES 选中值 */
-function syncResSelect() {
-  ["CAPTURE_RES", "DISPLAY_RES"].forEach((resKey) => {
-    const sel = document.querySelector('select[data-key="' + resKey + '"]');
-    if (!sel) return;
-    const base = resKey === "CAPTURE_RES" ? "CAPTURE" : "DISPLAY";
-    const w = (document.querySelector('input[data-key="' + base + '_WIDTH"]') || {}).value || "";
-    const h = (document.querySelector('input[data-key="' + base + '_HEIGHT"]') || {}).value || "";
-    if (w && h) {
-      const res = w + "x" + h;
-      if (!Array.from(sel.options).some((o) => o.value === res)) {
-        const o = document.createElement("option"); o.value = res; o.textContent = res; sel.appendChild(o);
-      }
-      sel.value = res;
+/* 当前推流采集设备下拉值 */
+function getCurDev() {
+  const s = document.querySelector('select[data-key="FFMPEG_CAM_DEV"]');
+  return s ? s.value : "";
+}
+
+/* ---------- HDR 独立页 ---------- */
+let pendingIqf = new Set();   // 本会话已写入待重启的 iqfile
+
+/* HDR 页加载: active 判定 (rkisp 存在 + 已激活 iqfile), 并按 sensor 分组渲染 */
+async function loadHdrPage() {
+  const box = $("hdrPageContent");
+  if (!box) return;
+  box.innerHTML = '<div class="card"><h3>HDR 开关</h3><p style="font-size:13px;color:#94a3b8">加载中...</p></div>';
+  try {
+    const d = await api("/api/hdr/status");
+    if (!d.active) {
+      box.innerHTML = '<div class="card"><h3>HDR 开关</h3>' +
+        '<p style="font-size:13px;color:#94a3b8">当前硬件未检测到 rkisp 设备，或没有已激活的 iqfile（未安装合规的 MIPI sensor），HDR 不可用。</p></div>';
+      return;
     }
-  });
+    const sensors = d.sensors || [];
+    // 顶部: 统一生效说明 + 总重启按钮 + 待重启计数
+    const np = pendingIqf.size;
+    let top = '<div class="card" style="margin-bottom:12px">' +
+      '<h3>修改 HDR · 统一重启生效</h3>' +
+      '<p style="font-size:13px;color:#94a3b8">点下方 sensor 的“开启/关闭 HDR”只写入 iqfile、不立即重启；可同时调整多个 sensor，最后点“重启操作系统”一次性生效（约 1 分钟，期间推流/本地显示中断）。</p>' +
+      (np > 0 ? '<p style="font-size:13px;color:#fbbf24;margin-top:4px">⚠ 已有 ' + np + ' 个 sensor 修改待重启</p>' : '') +
+      '<div class="btns" style="margin-top:8px">' +
+      '<button class="btn-warn" id="rebootOsBtn">重启操作系统</button>' +
+      '</div></div>';
+    const cards = sensors.map((s, i) => {
+      const active = !!s.exists;
+      const hdrEn = s.hdr_en === 1;
+      const isPending = pendingIqf.has(s.iqfile);
+      return '<div class="card" style="margin-bottom:12px">' +
+        '<h3>Sensor ' + (i + 1) + ' · ' + esc(s.sensor || s.entity || "-") +
+        (isPending ? ' <span style="color:#fbbf24;font-weight:600">[待重启]</span>' : '') + '</h3>' +
+        '<div class="kv"><span>Entity</span><span>' + esc(s.entity || "-") + '</span></div>' +
+        '<div class="kv"><span>模组</span><span>' + esc(s.module || "-") + '</span></div>' +
+        '<div class="kv"><span>镜头</span><span>' + esc(s.lens || "-") + '</span></div>' +
+        '<div class="kv"><span>iqfile</span><span style="word-break:break-all">' + esc(s.iqfile || "-") + '</span></div>' +
+        '<div class="kv"><span>iqfile 存在</span><span>' +
+          (active ? '<span class="status-badge badge-on">是</span>' : '<span class="status-badge badge-off">否</span>') + '</span></div>' +
+        '<div class="kv"><span>当前 HDR</span><span>' +
+          (hdrEn ? '<span class="status-badge badge-on">开启 (HDR)</span>' : '<span class="status-badge badge-off">关闭 (线性)</span>') + '</span></div>' +
+        (active
+          ? '<div class="btns" style="margin-top:8px">' +
+            // 修正: 按钮应允许切换到相反状态. HDR 开时"关闭"可点、"开启"禁用; HDR 关时反之
+            '<button class="btn-warn" data-hdr-iq="' + esc(s.iqfile) + '" data-hdr-v="0"' + (hdrEn ? '' : ' disabled') + '>关闭 HDR</button>' +
+            '<button class="btn-success" data-hdr-iq="' + esc(s.iqfile) + '" data-hdr-v="1"' + (hdrEn ? ' disabled' : '') + '>开启 HDR</button>' +
+            '</div>'
+          : '<p style="font-size:12px;color:#94a3b8;margin-top:6px">该 Sensor 无匹配 iqfile，HDR 不可用。</p>') +
+        '</div>';
+    }).join('');
+    box.innerHTML = top + cards +
+      '<div class="card"><p style="font-size:12px;color:#94a3b8">HDR 修改写入 iqfile 后需重启操作系统才能彻底生效。</p></div>';
+    box.querySelectorAll("[data-hdr-iq]").forEach((b) => {
+      b.onclick = () => setHdrSensor(b.dataset.hdrIq, +b.dataset.hdrV);
+    });
+    const rb = $("rebootOsBtn");
+    if (rb) rb.onclick = rebootOs;
+  } catch (e) {
+    box.innerHTML = '<div class="card"><h3>HDR 开关</h3><p style="font-size:13px;color:#94a3b8">加载失败: ' + esc(String(e)) + '</p></div>';
+  }
+}
+
+/* 按 sensor 的 iqfile 切换 HDR: 仅写入 iqfile, 不重启 (多 sensor 逐个改, 最后统一重启) */
+async function setHdrSensor(iqfile, value) {
+  const action = value === 1 ? "开启" : "关闭";
+  if (!confirm("确定要" + action + " HDR 吗？\n仅写入 iqfile，不会立即重启；可改多个 sensor 后点页顶“重启操作系统”一次性生效。")) return;
+  toast("正在写入 " + action + " HDR ...", true);
+  try {
+    const r = await api("/api/hdr/set", { method: "POST", body: JSON.stringify({ value: value, iqfile: iqfile, reboot: false }) });
+    if (r.ok) {
+      pendingIqf.add(iqfile);
+      toast("已写入：" + action + " HDR（待重启生效）", true);
+      loadHdrPage();
+    } else {
+      toast("HDR 切换失败: " + (r.error || ""), false);
+    }
+  } catch (e) {
+    toast("HDR 切换请求失败", false);
+  }
+}
+
+/* 统一重启操作系统 (HDR 多 sensor 改完后一次性生效) */
+function rebootOs() {
+  if (!confirm("确定重启操作系统吗？\n重启后所有 HDR 修改将彻底生效（约 1 分钟，期间推流/本地显示会中断）。")) return;
+  toast("系统即将重启...", true);
+  api("/api/reboot", { method: "POST" })
+    .then(() => { toast("系统即将重启（约 1 分钟）...", true); })
+    .catch(() => toast("重启请求失败", false));
 }
 
 async function loadDynamicOptions() {
@@ -525,7 +624,7 @@ async function loadDynamicOptions() {
   try { const d = await api("/api/drm"); dyn.drm = d.connectors || []; dyn.drm_ids = d.drm_ids || []; dyn.drm_modes = d.modes || []; } catch (e) {}
   try { const f = await api("/api/fonts"); dyn.fonts = f.fonts || []; dyn.pango = f.pango || []; } catch (e) {}
   try { dyn.capture_res = (await api("/api/capture_res")).res || []; } catch (e) {}
-  try { dyn.formats = (await api("/api/formats")).fps || []; } catch (e) {}
+  try { const fd = await api("/api/formats"); dyn.formats = fd.fps || []; dyn.formats_readonly = !!fd.readonly; } catch (e) {}
   try { const a = await api("/api/alsa"); dyn.alsa_dev = a.devices || []; dyn.alsa_rate = a.rates || []; } catch (e) {}
   document.querySelectorAll("select[data-dynamic]").forEach((sel) => {
     const name = sel.dataset.dynamic;
@@ -545,6 +644,12 @@ async function loadDynamicOptions() {
     }
     sel.value = cur;
   });
+  const fpsSel = document.querySelector('select[data-key="CAPTURE_FPS"]');
+  if (fpsSel) {
+    fpsSel.disabled = !!dyn.formats_readonly;
+    fpsSel.title = dyn.formats_readonly ? "ISP 帧率由 3A 控制, 只读" : "";
+  }
+  updateStreamFpsOptions();
 }
 
 /* 帮助卡片: 悬停/聚焦显示对应参数说明 */
@@ -561,29 +666,45 @@ $("cfgForm").addEventListener("focusin", (e) => {
   const row = e.target.closest(".cfg-row");
   if (row) showHelp(row);
 });
-/* 分辨率联动: 选择 CAPTURE_RES / DISPLAY_RES 时写入对应 WIDTH/HEIGHT */
+/* 级联: 设备变更→重载分辨率+帧率; 采集分辨率变更→重载帧率; 采集帧率变更→重算输出帧率 */
 $("cfgForm").addEventListener("change", (e) => {
   const k = e.target && e.target.dataset && e.target.dataset.key;
   if (k === "FFMPEG_CAM_DEV") { reloadCaptureDeps(); }
-  if (k === "CAPTURE_RES" || k === "DISPLAY_RES") {
-    const m = e.target.value.split("x");
-    if (m.length === 2) {
-      const base = k === "CAPTURE_RES" ? "CAPTURE" : "DISPLAY";
-      const w = document.querySelector('input[data-key="' + base + '_WIDTH"]');
-      const h = document.querySelector('input[data-key="' + base + '_HEIGHT"]');
-      if (w) w.value = m[0];
-      if (h) h.value = m[1];
-    }
-  }
+  if (k === "CAPTURE_RES") { reloadFormats(getCurDev()); }
+  if (k === "CAPTURE_FPS") { updateStreamFpsOptions(); }
 });
 
-/* 推流采集设备变更后: 重载采集分辨率/帧率下拉 (两者均依赖当前设备) */
+/* 推流采集设备变更后: 重载采集分辨率, 再按当前分辨率重载帧率 + HDR 状态 */
 async function reloadCaptureDeps() {
+  const dev = getCurDev();
+  const devq = dev ? ("?dev=" + encodeURIComponent(dev)) : "";
   try {
-    const cr = (await api("/api/capture_res")).res || [];
+    const cr = (await api("/api/capture_res" + devq)).res || [];
     fillDynamicSel(document.querySelector('select[data-key="CAPTURE_RES"]'), cr);
-    const fm = (await api("/api/formats")).fps || [];
-    fillDynamicSel(document.querySelector('select[data-key="CAPTURE_FPS"]'), fm);
+    await reloadFormats(dev);
+  } catch (e) {}
+}
+/* 按当前 CAPTURE_RES 重载采集帧率下拉, 并按 readonly 禁用 */
+async function reloadFormats(dev) {
+  const resSel = document.querySelector('select[data-key="CAPTURE_RES"]');
+  const size = resSel ? resSel.value : "";
+  const params = [];
+  if (dev) params.push("dev=" + encodeURIComponent(dev));
+  if (size && /^\d+x\d+$/.test(size)) params.push("size=" + encodeURIComponent(size));
+  const url = params.length ? ("/api/formats?" + params.join("&")) : "/api/formats";
+  try {
+    const d = await api(url);
+    const fpsSel = document.querySelector('select[data-key="CAPTURE_FPS"]');
+    fillDynamicSel(fpsSel, d.fps || []);
+    if (fpsSel) {
+      fpsSel.disabled = !!d.readonly;
+      fpsSel.title = d.readonly ? "ISP 帧率由 3A 控制, 只读" : "";
+      // 只读(ISP)时强制设为实测值, 避免保留之前非ISP选择的值
+      if (d.readonly && d.fps && d.fps.length) {
+        fpsSel.value = d.fps[0].value;
+      }
+    }
+    updateStreamFpsOptions();
   } catch (e) {}
 }
 /* 用数据重建 select 选项, 保留当前选中 (若当前值不在新选项则补回) */
@@ -598,6 +719,44 @@ function fillDynamicSel(sel, items) {
     const op = document.createElement("option"); op.value = cur; op.textContent = cur; sel.appendChild(op);
   }
   sel.value = cur;
+}
+
+/* 输出帧率选项: auto + 采集帧率(升档=整数倍, 降档=折半链 ÷2/÷4/÷8), 范围 1..120 */
+function streamFpsOptions(base) {
+  base = parseInt(base, 10);
+  const opts = ["auto"];
+  if (base > 0) {
+    const set = {};
+    // 升档: 整数倍 (x1, x2, x3, ... <= 120)
+    for (let n = 1; base * n <= 120; n++) set[base * n] = 1;
+    // 降档: 折半链 (÷2, ÷4, ÷8, ... 保持整数且 >= 1)
+    let div = base / 2;
+    while (div >= 1 && Number.isInteger(div)) { set[div] = 1; div /= 2; }
+    // 数值升序 (auto 保持在最前)
+    Object.keys(set).map(Number).sort((a, b) => a - b).forEach((v) => opts.push(String(v)));
+  }
+  return opts;
+}
+/* 按当前采集帧率重建输出帧率下拉 */
+function updateStreamFpsOptions() {
+  const capSel = document.querySelector('select[data-key="CAPTURE_FPS"]');
+  const streamSel = document.querySelector('select[data-key="STREAM_FPS"]');
+  if (!streamSel) return;
+  const base = capSel && capSel.value ? capSel.value : "30";
+  // 初始为空 select 时 .value 为空, 需回退 renderCfg 写入的 data-cur (配置值, 如 auto)
+  const cur = streamSel.value || streamSel.dataset.cur || "";
+  const opts = streamFpsOptions(base);
+  streamSel.innerHTML = "";
+  opts.forEach((v) => {
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = (v === "auto" ? "auto (跟随采集)" : v + " fps");
+    streamSel.appendChild(o);
+  });
+  if (cur && !Array.from(streamSel.options).some((o) => o.value === cur)) {
+    const o = document.createElement("option"); o.value = cur; o.textContent = cur + " fps"; streamSel.appendChild(o);
+  }
+  streamSel.value = cur;
 }
 
 function esc(s) { return String(s).replace(/&/g, String.fromCharCode(38)+"amp;").replace(/"/g, String.fromCharCode(38)+"quot;").replace(/</g, String.fromCharCode(38)+"lt;"); }

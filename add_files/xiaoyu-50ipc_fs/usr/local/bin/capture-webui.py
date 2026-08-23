@@ -20,6 +20,7 @@ capture-webui.py - capture 服务 Web 管理界面 (轻量级, 仅用 Python 标
 """
 
 import argparse
+import glob
 import json
 import os
 import re
@@ -35,11 +36,12 @@ from urllib.parse import urlparse, parse_qs
 # ---------------------------------------------------------------------------
 # 常量与配置
 # ---------------------------------------------------------------------------
-VERSION = "1.0.0"                    # 软件版本
+VERSION = "1.1.0"                    # 软件版本
 SERVICE = "capture.service"
 CONF_PATH = "/etc/capture.conf"
 CONF_DEFAULT = "/etc/capture.conf.default"   # 首次启动备份的默认配置
 CAPTURE_PL = "/usr/local/bin/capture.pl"
+ENUM_PL = "/usr/local/bin/capture-enum.pl"
 CHART_JS_PATH = "/usr/local/www/chart.min.js"
 HTML_PAGE = "/usr/local/www/capture-webui.html"   # 前端页面 (独立文件)
 
@@ -89,85 +91,78 @@ CONFIG_SCHEMA = [
      "help": "启动前执行 systemctl restart rkaiq_3A.service"},
     {"key": "WAIT_3A",          "type": "bool", "group": "3A 算法", "label": "等待 3A 就绪",
      "help": "等待 3A 服务(端口4894)就绪后再启动管线"},
-    # 设备节点
-    {"key": "GST_CAM_DEV",      "type": "select", "group": "设备节点", "label": "本地显示视频采集", "dynamic": "devices",
-     "help": "本地显示视频采集设备 (通常 rkisp_selfpath)"},
-    {"key": "FFMPEG_CAM_DEV",   "type": "select", "group": "设备节点", "label": "推流视频采集", "dynamic": "devices",
+    # 采集->推流
+    {"key": "FFMPEG_CAM_DEV",   "type": "select", "group": "采集->推流", "label": "推流视频采集", "dynamic": "devices",
      "help": "推流视频采集设备 (通常 rkisp_mainpath)"},
+    {"key": "CAPTURE_RES",      "type": "select", "group": "采集->推流", "label": "分辨率", "dynamic": "capture_res",
+     "help": "采集分辨率 (按当前推流采集设备支持的枚举自动筛选, 宽x高)"},
+    {"key": "CAPTURE_FPS",      "type": "select", "group": "采集->推流", "label": "采集帧率", "dynamic": "formats",
+     "help": "采集帧率 (ISP 设备由 3A 控制, 只读; 非 ISP 可枚举)"},
+    {"key": "STREAM_FPS",       "type": "select", "group": "采集->推流", "label": "输出帧率",
+     "help": "推流输出帧率 (滤镜 -vf fps 前置统一, 不再用输出端 -r); 升档=采集帧率整数倍(最高120fps), 降档=折半链÷2/÷4/÷8(缓解高采集帧率下编码器吞吐瓶颈); auto=跟随采集帧率"},
+    {"key": "RTSP_URL",         "type": "str", "group": "采集->推流", "label": "RTSP 地址",
+     "help": "RTSP 推流目标地址"},
     # 本地显示
+    {"key": "GST_CAM_DEV",      "type": "select", "group": "本地显示", "label": "视频采集设备", "dynamic": "devices",
+     "help": "本地显示视频采集设备 (通常 rkisp_selfpath)"},
     {"key": "DISPLAY_CONNECTOR_ID",   "type": "select", "group": "本地显示", "label": "DRM connector ID", "dynamic": "drm_ids",
      "help": "DRM connector 数字 ID (-1=自动)"},
     {"key": "DISPLAY_CONNECTOR_NAME", "type": "select", "group": "本地显示", "label": "DRM 设备", "dynamic": "drm",
      "help": "DRM connector 名称 (空=自动)"},
     {"key": "DISPLAY_RES",      "type": "select", "group": "本地显示", "label": "分辨率", "dynamic": "drm_modes",
-     "help": "本地显示分辨率 (从 DRM 可用模式枚举)"},
-    {"key": "DISPLAY_WIDTH",    "type": "hidden", "group": "本地显示", "label": "显示宽度",
-     "help": "由分辨率下拉联动设置"},
-    {"key": "DISPLAY_HEIGHT",   "type": "hidden", "group": "本地显示", "label": "显示高度",
-     "help": "由分辨率下拉联动设置"},
+     "help": "本地显示分辨率 (从 DRM 可用模式枚举, 宽x高)"},
     {"key": "DISPLAY_ROTATE",   "type": "select", "group": "本地显示", "label": "旋转角度",
      "options": ["0", "90", "180", "270"], "help": "显示画面旋转角度"},
     {"key": "FORCE_MODESETTING","type": "bool", "group": "本地显示", "label": "强制 modesetting",
      "help": "kmssink 强制 modesetting"},
-    # 采集
-    {"key": "CAPTURE_RES",      "type": "select", "group": "采集", "label": "分辨率", "dynamic": "capture_res",
-     "help": "采集分辨率 (按当前推流采集设备支持的枚举自动筛选, 如设备最高 2K 则不含 4K)"},
-    {"key": "CAPTURE_WIDTH",    "type": "hidden", "group": "采集", "label": "采集宽度",
-     "help": "由分辨率下拉联动设置"},
-    {"key": "CAPTURE_HEIGHT",   "type": "hidden", "group": "采集", "label": "采集高度",
-     "help": "由分辨率下拉联动设置"},
-    {"key": "CAPTURE_FPS",      "type": "select", "group": "采集", "label": "帧率", "dynamic": "formats",
-     "help": "采集帧率 (从当前采集设备枚举, 默认 30)"},
-    {"key": "RTSP_URL",         "type": "str", "group": "采集", "label": "RTSP 地址",
-     "help": "RTSP 推流目标地址"},
-    # 编码
-    {"key": "ENCODER_CODEC",    "type": "radio", "group": "编码", "label": "编码器",
+    # 采集->推流 / 编码
+    {"key": "ENCODER_CODEC",    "type": "radio", "group": "采集->推流", "subgroup": "编码", "label": "编码器",
      "options": ["h264_rkmpp", "hevc_rkmpp"], "help": "选择 H.264 或 HEVC 硬件编码"},
-    {"key": "ENCODER_BITRATE",  "type": "str", "group": "编码", "label": "目标码率",
+    {"key": "ENCODER_BITRATE",  "type": "str", "group": "采集->推流", "subgroup": "编码", "label": "目标码率",
      "help": "目标码率, 如 8M/12M/16M/24M (仅设此项+码率模式即可, 其余参数自动推导)。编码速查(均为 CBR 推荐): 640x480@25→1M, 1280x720@30→4M, 1920x1080@30→6M(60fps→12M), 2560x1440@30→16M(60fps→18M), 3840x2160@30→24M, 480x800@30→2M。HEVC 同等画质约为 H.264 的 60%~70%; 画质优先可改 VBR/AVBR"},
-    {"key": "ENCODER_GOP",      "type": "str", "group": "编码", "label": "GOP",
+    {"key": "ENCODER_GOP",      "type": "str", "group": "采集->推流", "subgroup": "编码", "label": "GOP",
      "help": "关键帧间隔: auto=2倍帧率, 或固定 60/120"},
-    {"key": "ENCODER_RC_MODE",  "type": "select", "group": "编码", "label": "码率模式",
+    {"key": "ENCODER_RC_MODE",  "type": "select", "group": "采集->推流", "subgroup": "编码", "label": "码率模式",
      "options": ["CBR", "VBR", "AVBR"],
-     "help": "CBR 恒定码率最稳; VBR 画质高但波动大; AVBR 自适应折中"},
-    {"key": "ENCODER_EXTRA",    "type": "str", "group": "编码", "label": "额外参数",
+     "help": "CBR 恒定码率最稳(均值=目标); VBR 真动态范围(150%*T/3*T, 静态可降码率/动态有头寸, 均值略高于目标); AVBR 质量自适应, 实际均值约为目标的 60-70%(码率偏低为特性)"},
+    {"key": "ENCODER_EXTRA",    "type": "str", "group": "采集->推流", "subgroup": "编码", "label": "额外参数",
      "help": "追加到自动参数末尾并覆盖, 如 -qp_max 30"},
-    # 音频
-    {"key": "AUDIO_ENABLE",     "type": "bool", "group": "音频", "label": "音频推流",
+    # 采集->推流 / 音频
+    {"key": "AUDIO_ENABLE",     "type": "bool", "group": "采集->推流", "subgroup": "音频", "label": "音频推流",
      "help": "是否随视频推流麦克风音频"},
-    {"key": "AUDIO_DEVICE",     "type": "select", "group": "音频", "label": "ALSA 设备", "dynamic": "alsa_dev",
+    {"key": "AUDIO_DEVICE",     "type": "select", "group": "采集->推流", "subgroup": "音频", "label": "ALSA 设备", "dynamic": "alsa_dev",
      "help": "ALSA 采集设备 (从系统枚举)"},
-    {"key": "AUDIO_SAMPLERATE", "type": "select", "group": "音频", "label": "采样率", "dynamic": "alsa_rate",
+    {"key": "AUDIO_SAMPLERATE", "type": "select", "group": "采集->推流", "subgroup": "音频", "label": "采样率", "dynamic": "alsa_rate",
      "help": "录音采样率 (从系统枚举)"},
-    {"key": "AUDIO_CHANNELS",   "type": "select", "group": "音频", "label": "声道数",
+    {"key": "AUDIO_CHANNELS",   "type": "select", "group": "采集->推流", "subgroup": "音频", "label": "声道数",
      "options": ["1", "2"], "help": "采集声道数 (单声道麦克风选 1)"},
-    {"key": "AUDIO_BITRATE",    "type": "select", "group": "音频", "label": "AAC 码率",
+    {"key": "AUDIO_BITRATE",    "type": "select", "group": "采集->推流", "subgroup": "音频", "label": "AAC 码率",
      "options": ["96k", "128k", "160k", "192k"], "help": "AAC 音频编码码率"},
-    # 推流 OSD
-    {"key": "OSD_ENABLE",       "type": "bool", "group": "推流 OSD", "label": "OSD 开关",
+    # 采集->推流 / 推流 OSD
+    {"key": "OSD_ENABLE",       "type": "bool", "group": "采集->推流", "subgroup": "推流 OSD", "label": "OSD 开关",
      "help": "是否在推流画面叠加文字"},
-    {"key": "OSD_TEXT",         "type": "str", "group": "推流 OSD", "label": "固定文字",
+    {"key": "OSD_TEXT",         "type": "str", "group": "采集->推流", "subgroup": "推流 OSD", "label": "固定文字",
      "help": "左上角固定文字"},
-    {"key": "OSD_FONT",         "type": "select", "group": "推流 OSD", "label": "字体", "dynamic": "fonts",
+    {"key": "OSD_FONT",         "type": "select", "group": "采集->推流", "subgroup": "推流 OSD", "label": "字体", "dynamic": "fonts",
      "help": "drawtext 字体文件路径 (中文字体)"},
-    {"key": "OSD_TIMESTAMP",    "type": "bool", "group": "推流 OSD", "label": "时间戳",
+    {"key": "OSD_TIMESTAMP",    "type": "bool", "group": "采集->推流", "subgroup": "推流 OSD", "label": "时间戳",
      "help": "右上角时间戳开关"},
-    {"key": "OSD_TIMESTAMP_FORMAT", "type": "str", "group": "推流 OSD", "label": "时间戳格式",
+    {"key": "OSD_TIMESTAMP_FORMAT", "type": "str", "group": "采集->推流", "subgroup": "推流 OSD", "label": "时间戳格式",
      "help": "strftime 格式, 请用全角冒号(：)分隔时分秒"},
-    {"key": "OSD_FONTSIZE",     "type": "select", "group": "推流 OSD", "label": "字号",
+    {"key": "OSD_FONTSIZE",     "type": "select", "group": "采集->推流", "subgroup": "推流 OSD", "label": "字号",
      "options": ["0", "20", "24", "28", "32", "36", "40", "48"], "help": "0=自动按分辨率计算"},
-    # 本地显示 OSD
-    {"key": "DISPLAY_OSD_ENABLE",  "type": "bool", "group": "本地 OSD", "label": "OSD 开关",
+    # 本地显示 / 本地 OSD
+    {"key": "DISPLAY_OSD_ENABLE",  "type": "bool", "group": "本地显示", "subgroup": "本地 OSD", "label": "OSD 开关",
      "help": "是否在本地显示叠加文字"},
-    {"key": "DISPLAY_OSD_TEXT",    "type": "str", "group": "本地 OSD", "label": "固定文字",
+    {"key": "DISPLAY_OSD_TEXT",    "type": "str", "group": "本地显示", "subgroup": "本地 OSD", "label": "固定文字",
      "help": "本地显示左上角固定文字"},
-    {"key": "DISPLAY_OSD_FONT",    "type": "select", "group": "本地 OSD", "label": "字体", "dynamic": "pango",
+    {"key": "DISPLAY_OSD_FONT",    "type": "select", "group": "本地显示", "subgroup": "本地 OSD", "label": "字体", "dynamic": "pango",
      "help": "pango 字体家族名 (如 WenQuanYi Micro Hei / Sans)"},
-    {"key": "DISPLAY_OSD_TIMESTAMP","type": "bool", "group": "本地 OSD", "label": "时间戳",
+    {"key": "DISPLAY_OSD_TIMESTAMP","type": "bool", "group": "本地显示", "subgroup": "本地 OSD", "label": "时间戳",
      "help": "本地显示时间戳开关"},
-    {"key": "DISPLAY_OSD_TIMESTAMP_FORMAT", "type": "str", "group": "本地 OSD", "label": "时间戳格式",
+    {"key": "DISPLAY_OSD_TIMESTAMP_FORMAT", "type": "str", "group": "本地显示", "subgroup": "本地 OSD", "label": "时间戳格式",
      "help": "strftime 格式"},
-    {"key": "DISPLAY_OSD_FONTSIZE","type": "select", "group": "本地 OSD", "label": "字号",
+    {"key": "DISPLAY_OSD_FONTSIZE","type": "select", "group": "本地显示", "subgroup": "本地 OSD", "label": "字号",
      "options": ["0", "10", "12", "14", "16", "18", "20", "24"], "help": "0=自动按分辨率计算"},
 ]
 
@@ -287,10 +282,14 @@ def capture_process_summary():
 
     # 显示分辨率 (按旋转角度换算方向, 自动计算)
     try:
-        dw, dh = int(cfg.get("DISPLAY_WIDTH", 0)), int(cfg.get("DISPLAY_HEIGHT", 0))
         dr = cfg.get("DISPLAY_ROTATE", "0")
-        vw, vh = _rot(dw, dh, dr)
-        disp_res = "%dx%d(旋转%s度)" % (vw, vh, dr)
+        m = re.match(r"^(\d+)\s*[xX]\s*(\d+)$", (cfg.get("DISPLAY_RES", "") or "").strip())
+        if m:
+            dw, dh = int(m.group(1)), int(m.group(2))
+            vw, vh = _rot(dw, dh, dr)
+            disp_res = "%dx%d(旋转%s度)" % (vw, vh, dr)
+        else:
+            disp_res = cfg.get("DISPLAY_RES", "-")
     except Exception:
         disp_res = "-"
 
@@ -327,7 +326,7 @@ def capture_process_summary():
         # ---- 推流组 ----
         "stream": cfg.get("STREAM_ENABLE", "-"),
         "audio": cfg.get("AUDIO_ENABLE", "-"),
-        "cap_res": "%sx%s" % (cfg.get("CAPTURE_WIDTH", "-"), cfg.get("CAPTURE_HEIGHT", "-")),
+        "cap_res": cfg.get("CAPTURE_RES", "-"),
         "cap_fps": cfg.get("CAPTURE_FPS", "-"),
         "codec": cfg.get("ENCODER_CODEC", "-"),
         "bitrate": cfg.get("ENCODER_BITRATE", "-"),
@@ -436,6 +435,7 @@ def config_schema_payload():
         schema.append({
             "key": item["key"], "type": item["type"],
             "group": item["group"], "label": item["label"],
+            "subgroup": item.get("subgroup", ""),
             "value": cfg.get(item["key"], ""),
             "options": item.get("options", []),
             "help": item.get("help", ""),
@@ -646,29 +646,127 @@ def stats_payload():
 # ---------------------------------------------------------------------------
 # 动态枚举 (设备 / DRM / 字体)
 # ---------------------------------------------------------------------------
+def _media_topology(media):
+    """返回 media 设备的 media-ctl -p 拓扑文本 (失败返回空串)"""
+    code, out, _ = run_cmd(["media-ctl", "-d", media, "-p"], timeout=10)
+    return out if code == 0 else ""
+
+
+def _media_model_from_text(out):
+    """从拓扑文本提取 media 设备 model (如 rkcif-mipi-lvds / rkisp / rkvpss)"""
+    m = re.search(r'^\s*model\s+(\S+)', out, re.M)
+    return m.group(1) if m else ""
+
+
+def _ref_regex(model):
+    """构造下游引用匹配正则:
+    既支持直接实体名 (如 rkcif-mipi-lvds -> ISP 媒体引用该实体),
+    也支持虚拟接口名 (如 rkisp0 -> VPSS 媒体引用 rkisp-vir0-sditf)"""
+    base = re.sub(r'\d+$', '', model)
+    inst = re.search(r'(\d+)$', model)
+    pats = [r'\b%s\b' % re.escape(model)]
+    if inst and base != model:
+        pats.append(r'\b%s-vir%s\b' % (re.escape(base), inst.group(1)))
+    return re.compile('|'.join(pats))
+
+
+def _active_media_set():
+    """返回含真实 sensor 的 media 设备及其下游 (ISP/VPSS) 集合; 无 media 时返回 None (不去重).
+    双目 DTS 下另一路无真实 sensor (FakeCamera), 其设备无效需排除."""
+    medias = sorted(glob.glob('/dev/media*'))
+    if not medias:
+        return None
+
+    topos = {m: _media_topology(m) for m in medias}
+    active = set()
+    frontier = []
+
+    # 1. 含真实 Sensor 实体的 media (CIF)
+    for media, out in topos.items():
+        if not out:
+            continue
+        if re.search(r'subtype\s+Sensor', out) and not re.search(r'FakeCamera|fake.?camera', out, re.I):
+            active.add(media)
+            model = _media_model_from_text(out)
+            if model:
+                frontier.append(model)
+
+    # 2. 沿引用关系扩散下游: CIF -> ISP -> VPSS (最多 3 跳)
+    for _ in range(3):
+        if not frontier:
+            break
+        nxt = []
+        for media, out in topos.items():
+            if media in active or not out:
+                continue
+            for f in frontier:
+                if _ref_regex(f).search(out):
+                    active.add(media)
+                    model = _media_model_from_text(out)
+                    if model:
+                        nxt.append(model)
+                    break
+        frontier = nxt
+
+    return active
+
+
+def _media_devices_map():
+    """返回 {media设备: [video设备路径...]} 映射 (用于双路去重)"""
+    m = {}
+    for media in sorted(glob.glob('/dev/media*')):
+        for ln in _media_topology(media).splitlines():
+            mm = re.search(r'device node name\s+(/dev/video\S+)', ln)
+            if mm:
+                m.setdefault(media, []).append(mm.group(1))
+    return m
+
+
 def list_video_devices():
-    """解析视频设备列表 (v4l2-ctl --list-devices, 回退 /sys/class/video4linux)"""
-    devices = []
-    code, out, _ = run_cmd(["v4l2-ctl", "--list-devices"], timeout=10)
-    if code != 0:
+    """枚举可用视频采集设备 (供推流/显示采集下拉).
+    规则: 仅 /dev/videoN; 名称白名单(可拉流节点); 双路去重(仅保留含真实 sensor 的下游设备).
+    排除: /dev/media*, rkaiisp/rkisp-statistics/input-params/pdaf/iqtool/rawrd,
+          rkcif_tools/rkfec_offline/rkvpss-offline, 以及双目另一路(FakeCamera)设备."""
+    ALLOW_RE = re.compile(
+        r'^(rkisp_mainpath|rkisp_selfpath|stream_cif_mipi_id\d+|rkcif_scale_ch\d+|rkvpss_scale\d+)$'
+    )
+
+    def is_uvc(e, name):
+        if re.search(r'uvc|usb.?camera|webcam', name, re.I):
+            return True
         try:
-            for e in sorted(os.listdir("/sys/class/video4linux")):
-                name = ""
-                try:
-                    name = open("/sys/class/video4linux/%s/name" % e).read().strip()
-                except Exception:
-                    pass
-                devices.append({"value": "/dev/%s" % e, "label": "/dev/%s · %s" % (e, name or "video device")})
+            uev = open("/sys/class/video4linux/%s/device/uevent" % e).read()
+            return "DRIVER=uvcvideo" in uev
         except Exception:
-            pass
-        return devices
-    cur = None
-    for ln in out.splitlines():
-        if ln[:1] in ("\t", " ") and ln.strip().startswith("/dev/"):
-            path = ln.strip()
-            devices.append({"value": path, "label": "%s · %s" % (path, cur or "video device")})
-        else:
-            cur = ln.strip()
+            return False
+
+    all_devs = []
+    try:
+        for e in sorted(os.listdir("/sys/class/video4linux")):
+            if not e.startswith("video") or "-" in e:
+                continue   # 排除 video-camera0 / v4l-subdev 等
+            try:
+                name = open("/sys/class/video4linux/%s/name" % e).read().strip()
+            except Exception:
+                name = ""
+            all_devs.append((e, "/dev/%s" % e, name))
+    except Exception:
+        pass
+
+    active = _active_media_set()
+    dev_to_media = {d: m for m, devs in _media_devices_map().items() for d in devs}
+
+    devices = []
+    for e, path, name in all_devs:
+        u = is_uvc(e, name)
+        if not (ALLOW_RE.match(name) or u):
+            continue
+        # 双路去重: 仅对 RK 系(CIF/ISP/VPSS)设备做 media 归属校验; UVC 直接保留
+        if active is not None and not u:
+            media = dev_to_media.get(path)
+            if media is None or media not in active:
+                continue
+        devices.append({"value": path, "label": "%s · %s" % (path, name or "video device")})
     return devices
 
 
@@ -745,61 +843,49 @@ def list_pango_fonts():
     return fonts
 
 
-def list_fps_formats():
-    """按当前采集设备枚举可用帧率 (v4l2-ctl --list-formats-ext)"""
-    cfg = load_config()
-    dev = cfg.get("FFMPEG_CAM_DEV", "/dev/video24")
-    fps = set()
-    code, out, _ = run_cmd(["v4l2-ctl", "-d", dev, "--list-formats-ext"], timeout=10)
-    if code == 0:
-        for ln in out.splitlines():
-            m = re.search(r"Interval:\s+\S+\s+[\d.]+s\s+\(([\d.]+)\s*fps\)", ln)
-            if m:
-                try:
-                    f = float(m.group(1))
-                    if f > 0:
-                        fps.add(int(round(f)))
-                except Exception:
-                    pass
-    for d in (30, 25, 60, 15):
-        fps.add(d)
-    return [{"value": str(f), "label": "%d fps" % f} for f in sorted(fps)]
+def list_fps_formats(cfg=None, size=None, dev=None):
+    """按当前采集设备+分辨率枚举真实帧率 (capture-enum.pl).
+    ISP: 帧率由 3A 控制, 只读, 实测当前帧率; 非 ISP: 按分辨率枚举"""
+    if cfg is None:
+        cfg = load_config()
+    dev = dev or cfg.get("FFMPEG_CAM_DEV", "/dev/video24")
+    src = _enum_json("--detect-type", dev)
+    stype = (src or {}).get("type", "generic")
+    readonly = (stype == "isp")
+
+    if readonly:
+        af = _enum_json("--actual-fps", dev)
+        fps = int((af or {}).get("fps", 0) or 0)
+        items = [{"value": str(fps), "label": "%d fps (3A 控制, 只读)" % fps}]
+    else:
+        args = ["--source-fps", dev]
+        if size:
+            args += ["--size", size]
+        d = _enum_json(*args)
+        items = []
+        if d and d.get("fps"):
+            for f in d["fps"]:
+                if f.get("supported"):
+                    items.append({"value": str(f["fps"]), "label": "%d fps" % f["fps"]})
+        if not items:
+            for v in (30, 25, 60, 15):
+                items.append({"value": str(v), "label": "%d fps" % v})
+    return {"fps": items, "readonly": readonly, "type": stype}
 
 
-def list_capture_res():
-    """按当前采集设备枚举可用分辨率 (v4l2-ctl --list-formats-ext).
-    Discrete 逐个收集; Stepwise 取最大尺寸作为上限, 从常用组合中筛掉不支持的分辨率"""
+def list_capture_res(dev=None):
+    """按当前采集设备枚举可用分辨率 (capture-enum.pl --source-res)"""
     cfg = load_config()
-    dev = cfg.get("FFMPEG_CAM_DEV", "/dev/video24")
-    discrete = set()
-    maxw = maxh = 0
-    code, out, _ = run_cmd(["v4l2-ctl", "-d", dev, "--list-formats-ext"], timeout=10)
-    if code == 0:
-        for ln in out.splitlines():
-            m = re.search(r"Size:\s+Discrete\s+(\d{2,5})x(\d{2,5})", ln)
-            if m:
-                discrete.add("%sx%s" % (m.group(1), m.group(2)))
-                continue
-            m = re.search(r"Size:\s+Stepwise\s+\S+\s+-\s+(\d{2,5})x(\d{2,5})", ln)
-            if m:
-                maxw = max(maxw, int(m.group(1)))
-                maxh = max(maxh, int(m.group(2)))
-    order = ["3840x2160", "2560x1440", "1920x1080", "1280x720", "960x540",
-             "640x480", "480x800", "800x480"]
+    dev = dev or cfg.get("FFMPEG_CAM_DEV", "/dev/video24")
+    d = _enum_json("--source-res", dev)
     vals = []
-    for r in order:
-        if r in discrete:
-            vals.append(r)
-        elif maxw and maxh:
-            w, h = r.split("x")
-            if int(w) <= maxw and int(h) <= maxh:
-                vals.append(r)
-    for r in sorted(discrete):
-        if r not in vals:
-            vals.append(r)
+    if d and d.get("res"):
+        vals = [{"value": r, "label": r} for r in d["res"] if r]
     if not vals:
-        vals = order  # 兜底: 枚举失败时给出常用组合
-    return [{"value": v, "label": v} for v in vals]
+        vals = [{"value": v, "label": v} for v in
+                ["3840x2160", "2560x1440", "1920x1080", "1280x720",
+                 "960x540", "640x480", "480x800", "800x480"]]
+    return vals
 
 
 def list_alsa():
@@ -821,6 +907,103 @@ def list_alsa():
         "rates": [{"value": "48000", "label": "48000 Hz"},
                   {"value": "44100", "label": "44100 Hz"},
                   {"value": "16000", "label": "16000 Hz"}],
+    }
+
+
+# ---------------------------------------------------------------------------
+# capture-enum.pl 枚举 + HDR/iqfile 管理
+# ---------------------------------------------------------------------------
+def _enum_json(*args, timeout=15):
+    """调用 capture-enum.pl 并解析 JSON"""
+    try:
+        r = subprocess.run([ENUM_PL] + list(args), capture_output=True, text=True, timeout=timeout)
+        if r.returncode == 0 and r.stdout.strip():
+            return json.loads(r.stdout)
+    except Exception:
+        pass
+    return None
+
+
+def wait_3a_ready(timeout=30):
+    """等待 rkaiq_3A 服务就绪 (TCP 端口 4894)"""
+    for _ in range(timeout):
+        code, out, _ = run_cmd(["ss", "-tln"], timeout=5)
+        if code == 0 and ":4894" in out:
+            return True
+        time.sleep(1)
+    return False
+
+
+def hdr_info(dev=None):
+    """当前选中设备的 HDR/iqfile 状态 (ISP 及其下游 vpss 才显示 HDR)"""
+    cfg = load_config()
+    dev = dev or cfg.get("FFMPEG_CAM_DEV", "/dev/video24")
+    src = _enum_json("--detect-type", dev)
+    stype = (src or {}).get("type", "generic")
+    if stype not in ("isp", "vpss"):
+        return {"ok": True, "isp": False, "type": stype}
+    d = _enum_json("--iqfile", dev)
+    if not d or not d.get("iqfile"):
+        return {"ok": False, "isp": True, "type": stype, "error": (d or {}).get("error", "iqfile 定位失败")}
+    return {
+        "ok": True, "isp": True, "type": stype,
+        "sensor": d.get("sensor"), "iqfile": d.get("iqfile"),
+        "exists": d.get("exists"), "hdr_en": d.get("hdr_en"),
+        "hdr_mode": d.get("hdr_mode"),
+    }
+
+
+def hdr_status():
+    """HDR 页激活状态: 是否存在 rkisp 设备 + 已激活 iqfile; 并枚举所有 sensor 的 HDR 信息"""
+    has_rkisp = False
+    try:
+        for e in sorted(os.listdir("/sys/class/video4linux")):
+            try:
+                name = open("/sys/class/video4linux/%s/name" % e).read().strip()
+            except Exception:
+                name = ""
+            if re.search(r'^rkisp_(mainpath|selfpath)$', name):
+                has_rkisp = True
+                break
+    except Exception:
+        pass
+    d = _enum_json("--sensors") or {}
+    sensors = d.get("sensors") or []
+    active = has_rkisp and any(s.get("exists") for s in sensors)
+    return {"active": active, "has_rkisp": has_rkisp, "sensors": sensors}
+
+
+def hdr_set(value, dev=None, iqfile=None, reboot=True):
+    """切换 HDR: 改 iqfile hdr_en; reboot=True 时延迟重启 OS (HDR 需重启 OS 才彻底生效)
+
+    - 多 sensor 场景: 前端先以 reboot=False 逐个写入 iqfile, 最后统一重启一次
+    - 传入 iqfile: 直接修改该 iqfile (每个 sensor 独立 iqfile); 仅传 dev: 由 dev 反查
+    """
+    if value not in (0, 1):
+        return {"ok": False, "error": "hdr 值必须是 0 或 1"}
+
+    # 1. 修改 iqfile hdr_en
+    if iqfile:
+        d = _enum_json("--set-hdr-path", iqfile, "--hdr-value", str(value), timeout=30)
+    else:
+        cfg = load_config()
+        dev = dev or cfg.get("FFMPEG_CAM_DEV", "/dev/video24")
+        d = _enum_json("--set-hdr", dev, "--hdr-value", str(value), timeout=30)
+    if not d or not d.get("ok"):
+        return {"ok": False, "error": "修改 iqfile 失败: %s" % ((d or {}).get("error", "unknown"))}
+
+    # 2. 可选延迟 2 秒重启 OS (先返回 HTTP 响应, 再 reboot)
+    if reboot:
+        subprocess.Popen(["sh", "-c", "sleep 2; systemctl reboot"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    return {
+        "ok": True,
+        "hdr_en": d.get("hdr_en"),
+        "hdr_mode": d.get("hdr_mode"),
+        "iqfile": d.get("iqfile"),
+        "backup": d.get("backup"),
+        "rebooting": bool(reboot),
     }
 
 
@@ -917,10 +1100,23 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, {"fonts": list_chinese_fonts(), "pango": list_pango_fonts()})
                 return
             if path == "/api/formats":
-                self._send_json(200, {"fps": list_fps_formats()})
+                qs = parse_qs(u.query)
+                size = qs.get("size", [None])[0]
+                dev = qs.get("dev", [None])[0]
+                self._send_json(200, list_fps_formats(size=size, dev=dev))
                 return
             if path == "/api/capture_res":
-                self._send_json(200, {"res": list_capture_res()})
+                qs = parse_qs(u.query)
+                dev = qs.get("dev", [None])[0]
+                self._send_json(200, {"res": list_capture_res(dev=dev)})
+                return
+            if path == "/api/hdr/status":
+                self._send_json(200, hdr_status())
+                return
+            if path == "/api/hdr":
+                qs = parse_qs(u.query)
+                dev = qs.get("dev", [None])[0]
+                self._send_json(200, hdr_info(dev=dev))
                 return
             if path == "/api/alsa":
                 self._send_json(200, list_alsa())
@@ -991,6 +1187,28 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, service_action(action))
             else:
                 self._send_json(400, {"error": "bad action"})
+            return
+
+        if path == "/api/hdr/set":
+            body = self._read_body()
+            value = body.get("value")
+            if value not in (0, 1) and str(value) not in ("0", "1"):
+                self._send_json(400, {"error": "bad hdr value"})
+                return
+            rb = body.get("reboot", True)
+            if isinstance(rb, str):
+                rb = rb.lower() not in ("0", "false", "no")
+            self._send_json(200, hdr_set(int(value),
+                                         dev=body.get("dev"),
+                                         iqfile=body.get("iqfile"),
+                                         reboot=bool(rb)))
+            return
+
+        if path == "/api/reboot":
+            # 统一重启操作系统 (HDR 多 sensor 改完后一次性生效)
+            subprocess.Popen(["sh", "-c", "sleep 2; systemctl reboot"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._send_json(200, {"ok": True, "rebooting": True})
             return
 
         if path == "/api/config/save":

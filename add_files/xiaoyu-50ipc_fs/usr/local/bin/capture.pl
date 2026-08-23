@@ -18,12 +18,15 @@
 #
 #
 use strict;
-use constant VERSION => 'v3.0.0';
+use constant VERSION => 'v3.1.0';
 use constant AUTHOR  => 'flippy <flippy@sina.com>';
 use constant LICENSE => 'GPL v2';
 use warnings;
 use POSIX qw(setsid);
 use Getopt::Long;
+use JSON::PP;
+
+use constant ENUM_PL => "/usr/local/bin/capture-enum.pl";
 
 $Getopt::Long::ignorecase = 0;
 
@@ -41,14 +44,13 @@ my %opt = (
     wait_3a              => undef,
     gst_cam_dev          => undef,
     ffmpeg_cam_dev       => undef,
-    display_width        => undef,
-    display_height       => undef,
+    display_res          => undef,
     display_rotate       => undef,
     display_connector_id => undef,
     display_connector_name => undef,
-    capture_width        => undef,
-    capture_height       => undef,
+    capture_res          => undef,
     capture_fps          => undef,
+    stream_fps           => undef,
     encoder_codec        => undef,
     encoder_bitrate      => undef,
     encoder_gop          => undef,
@@ -89,14 +91,13 @@ GetOptions(
     'wait-3a!'            => \$opt{wait_3a},
     'gst-cam-dev=s'       => \$opt{gst_cam_dev},
     'ffmpeg-cam-dev=s'    => \$opt{ffmpeg_cam_dev},
-    'display-width=i'     => \$opt{display_width},
-    'display-height=i'    => \$opt{display_height},
+    'display-res=s'       => \$opt{display_res},
     'display-rotate=s'    => \$opt{display_rotate},
     'display-connector-id=i'   => \$opt{display_connector_id},
     'display-connector-name=s' => \$opt{display_connector_name},
-    'capture-width=i'     => \$opt{capture_width},
-    'capture-height=i'    => \$opt{capture_height},
+    'capture-res=s'       => \$opt{capture_res},
     'capture-fps=i'       => \$opt{capture_fps},
+    'stream-fps=s'        => \$opt{stream_fps},
     'encoder-codec=s'     => \$opt{encoder_codec},
     'encoder-bitrate=s'   => \$opt{encoder_bitrate},
     'encoder-gop=s'       => \$opt{encoder_gop},
@@ -137,7 +138,7 @@ if ($opt{help}) {
   --config=FILE, --lockfile=FILE
   --display-enable / --no-display-enable
   --stream-enable / --no-stream-enable
-  --restart-3a                     启动前重启 3A 算法服务
+  --restart-3a / --no-restart-3a   启动前重启 3A 算法服务
   --wait-3a / --no-wait-3a         等待 3A 就绪 (默认开启)
 
 设备节点:
@@ -145,12 +146,14 @@ if ($opt{help}) {
   --ffmpeg-cam-dev=PATH            推流路径 (mainpath, 默认 /dev/video24)
 
 显示参数:
-  --display-width=NUM --display-height=NUM --display-rotate=ANGLE
+  --display-res=WxH --display-rotate=ANGLE
   --display-connector-id=NUM       DRM connector ID (优先级高于名称)
   --display-connector-name=NAME    DRM connector 名称 (如 DSI-1)
 
 采集参数:
-  --capture-width=NUM --capture-height=NUM --capture-fps=NUM
+  --capture-res=WxH --capture-fps=NUM
+  --stream-fps=FPS                 输出帧率(滤镜 -vf fps 前置统一, 不再用 -r):
+                                  auto=跟随采集; 升档=采集帧率整数倍(≤120), 降档=折半链 ÷2/÷4/÷8
 
 编码参数:
   --encoder-codec=CODEC            h264_rkmpp / hevc_rkmpp
@@ -186,7 +189,7 @@ OSD 文字参数 (推流):
   本地显示 OSD 用 clockoverlay+textoverlay, 叠加在旋转前画面并随主画面一起旋转
 
 其他:
-  --rtsp-url=URL --force-modesetting=VAL
+  --rtsp-url=URL --force-modesetting=VAL   (VAL: true/false)
 USAGE
     exit 0;
 }
@@ -205,14 +208,13 @@ sub load_config {
         STREAM_ENABLE        => 1,
         RESTART_3A           => 0,
         WAIT_3A              => 1,
-        DISPLAY_WIDTH        => 480,
-        DISPLAY_HEIGHT       => 800,
+        DISPLAY_RES          => "480x800",
         DISPLAY_ROTATE       => "270",
         DISPLAY_CONNECTOR_ID => -1,
         DISPLAY_CONNECTOR_NAME => "",
-        CAPTURE_WIDTH        => 2560,
-        CAPTURE_HEIGHT       => 1440,
+        CAPTURE_RES          => "2560x1440",
         CAPTURE_FPS          => 30,
+        STREAM_FPS           => "auto",
         ENCODER_CODEC        => "h264_rkmpp",
         ENCODER_BITRATE      => "16M",
         ENCODER_GOP          => "60",
@@ -239,7 +241,7 @@ sub load_config {
         DISPLAY_OSD_FONT           => "Sans",
 );
 
-    my %is_num  = map { $_ => 1 } qw(DISPLAY_WIDTH DISPLAY_HEIGHT CAPTURE_WIDTH CAPTURE_HEIGHT CAPTURE_FPS DISPLAY_CONNECTOR_ID AUDIO_SAMPLERATE AUDIO_CHANNELS DISPLAY_OSD_FONTSIZE OSD_FONTSIZE);
+    my %is_num  = map { $_ => 1 } qw(CAPTURE_FPS DISPLAY_CONNECTOR_ID AUDIO_SAMPLERATE AUDIO_CHANNELS DISPLAY_OSD_FONTSIZE OSD_FONTSIZE);
     my %is_bool = map { $_ => 1 } qw(DISPLAY_ENABLE STREAM_ENABLE RESTART_3A WAIT_3A AUDIO_ENABLE OSD_ENABLE OSD_TIMESTAMP DISPLAY_OSD_ENABLE DISPLAY_OSD_TIMESTAMP);
 
     if (-f $file) {
@@ -275,14 +277,13 @@ sub load_config {
         wait_3a               => 'WAIT_3A',
         gst_cam_dev           => 'GST_CAM_DEV',
         ffmpeg_cam_dev        => 'FFMPEG_CAM_DEV',
-        display_width         => 'DISPLAY_WIDTH',
-        display_height        => 'DISPLAY_HEIGHT',
+        display_res           => 'DISPLAY_RES',
         display_rotate        => 'DISPLAY_ROTATE',
         display_connector_id  => 'DISPLAY_CONNECTOR_ID',
         display_connector_name => 'DISPLAY_CONNECTOR_NAME',
-        capture_width         => 'CAPTURE_WIDTH',
-        capture_height        => 'CAPTURE_HEIGHT',
+        capture_res           => 'CAPTURE_RES',
         capture_fps           => 'CAPTURE_FPS',
+        stream_fps            => 'STREAM_FPS',
         encoder_codec         => 'ENCODER_CODEC',
         encoder_bitrate       => 'ENCODER_BITRATE',
         encoder_gop           => 'ENCODER_GOP',
@@ -323,6 +324,38 @@ sub load_config {
     }
 
     return %cfg;
+}
+
+# 解析 "WxH" 分辨率字符串 -> (w, h); 失败返回空列表
+sub parse_res {
+    my ($res) = @_;
+    return unless defined $res && $res =~ /^\s*(\d+)\s*[xX*]\s*(\d+)\s*$/;
+    return ($1 + 0, $2 + 0);
+}
+
+# 调用 capture-enum.pl 并解析 JSON (失败返回 undef)
+sub enum_json {
+    my (@args) = @_;
+    my $out = `@{[ENUM_PL]} @args 2>/dev/null`;
+    return undef unless defined $out && $out ne "";
+    my $j = eval { JSON::PP->new->decode($out) };
+    return $j;
+}
+
+# 源类型识别 (isp/cif/uvc/hdmi_in/...)
+sub detect_source_type {
+    my ($dev) = @_;
+    my $j = enum_json("--detect-type", $dev);
+    return $j ? ($j->{type} || "generic") : "generic";
+}
+
+# 实测当前帧率 (capture-enum.pl --actual-fps; frames 可选, 高帧率模式切换后需较长抓帧)
+sub actual_fps {
+    my ($dev, $frames) = @_;
+    my $j = ($frames && $frames > 0)
+        ? enum_json("--actual-fps", $dev, "--frames", $frames)
+        : enum_json("--actual-fps", $dev);
+    return $j && $j->{fps} ? $j->{fps} + 0 : 0;
 }
 
 sub build_pattern {
@@ -682,6 +715,30 @@ sub resolve_display_connector {
     return $selected;
 }
 
+# 自动读取当前显示刷新率 (Hz): 从 capture-enum.pl --drm (modetest) 取 connected connector 首个模式的刷新率
+# 返回整数 Hz, 失败返回 0 (调用方据此决定是否限流)
+sub display_refresh_hz {
+    my ($cfg_id, $cfg_name) = @_;
+    my $j = enum_json("--drm");
+    return 0 unless $j && $j->{connectors};
+    my @conn = grep { ($_->{status} // "") eq "connected" } @{ $j->{connectors} };
+    return 0 unless @conn;
+    my $sel;
+    if (defined $cfg_id && $cfg_id >= 0) {
+        ($sel) = grep { ($_->{id} // -1) == $cfg_id } @conn;
+    }
+    if (!$sel && $cfg_name && $cfg_name ne "") {
+        ($sel) = grep { lc($_->{name} // "") eq lc($cfg_name) } @conn;
+    }
+    $sel //= $conn[0];
+    my @modes = @{ $sel->{modes} || [] };
+    return 0 unless @modes;
+    my $refresh = $modes[0]->{refresh};
+    return 0 unless defined $refresh && $refresh > 0;
+    my $fps = int($refresh + 0.5);
+    return $fps > 0 ? $fps : 0;
+}
+
 # ------------------------------------------------------------------------------
 # 编码参数自动计算辅助子程序
 # ------------------------------------------------------------------------------
@@ -740,9 +797,11 @@ sub encoder_build_params {
     $target = 12000 if $target <= 0;        # 兜底
 
     # ---- 码率边界自动计算 ----
+    # VBR 真动态范围: maxrate 1.5x / bufsize 3x (bps_min 在 MPP VBR 中不作为硬下限, 静态温和降码率;
+    # 放宽边界以保留动态头寸与静态压缩空间, 均值略高于目标)
     my ($min, $max, $buf);
     if ($rcmode eq "CBR") {
-        ($min, $max, $buf) = ($target, $target, $target);
+        ($min, $max, $buf) = ($target, $target, $target * 2);
     } elsif ($rcmode eq "VBR") {
         ($min, $max, $buf) = (int($target * 0.5), int($target * 1.5), int($target * 3));
     } else { # AVBR
@@ -758,6 +817,14 @@ sub encoder_build_params {
 
     # ---- QP / level / profile 自动推导 ----
     my ($qpi, $qpmn, $qpmx) = auto_qp($target);
+    if ($rcmode eq "VBR") {
+        # 真VBR动态范围 (实测 MPP VBR 为 QP 主导): qp_min+8 (16M档 10->16, 均值收敛到~16M)
+        # / qp_max+3 (33, 允许静态压缩); -b:v/-q 均不主导, 勿依赖
+        $qpmn = $qpmn + 8;
+        $qpmn = 24 if $qpmn > 24;
+        $qpmx = $qpmx + 5;
+        $qpmx = 44 if $qpmx > 44;
+    }
 
     if ($codec eq "h264_rkmpp") {
         my $lv = h264_auto_level($w, $h);
@@ -950,9 +1017,58 @@ my %CFG = load_config($opt{config}, \%opt);
 my ($DE, $SE)     = ($CFG{DISPLAY_ENABLE}, $CFG{STREAM_ENABLE});
 my ($GST_DEV, $FF_DEV) = ($CFG{GST_CAM_DEV}, $CFG{FFMPEG_CAM_DEV});
 my ($R3A, $W3A)   = ($CFG{RESTART_3A}, $CFG{WAIT_3A});
-my ($DW, $DH, $DR) = ($CFG{DISPLAY_WIDTH}, $CFG{DISPLAY_HEIGHT}, $CFG{DISPLAY_ROTATE});
+my ($DW, $DH)     = parse_res($CFG{DISPLAY_RES});
+($DW, $DH)        = (480, 800) unless defined $DW && defined $DH;
+my $DR            = $CFG{DISPLAY_ROTATE};
 my ($DCI, $DCN)   = ($CFG{DISPLAY_CONNECTOR_ID}, $CFG{DISPLAY_CONNECTOR_NAME});
-my ($CW, $CH, $CFPS) = ($CFG{CAPTURE_WIDTH}, $CFG{CAPTURE_HEIGHT}, $CFG{CAPTURE_FPS});
+my ($CW, $CH)     = parse_res($CFG{CAPTURE_RES});
+($CW, $CH)        = (2560, 1440) unless defined $CW && defined $CH;
+
+# 源类型识别 + 采集帧率 (E1)
+my $SRC_TYPE      = detect_source_type($FF_DEV);
+my $CFPS;
+if ($SRC_TYPE eq "isp") {
+    # 指导值 -> 设定 ISP (sensor 模式 + mainpath 输出格式), 失败则沿用当前模式
+    # conf 的 CAPTURE_RES/CAPTURE_FPS 仅为指导值, 实际以设定后的实测为准
+    my $set = enum_json("--set-isp", $FF_DEV, "--size", $CFG{CAPTURE_RES}, "--fps", $CFG{CAPTURE_FPS});
+    if ($set && $set->{ok}) {
+        # 分辨率校正: 仅用 set-isp 返回的 corrected_res (请求超 sensor 原生上限才校正, 如 4K).
+        # 不用 actual_res(mainpath 回读), 因 rkisp 回读不可靠会误报导致错误校正
+        my $corr = $set->{corrected_res} || "";
+        if ($corr =~ /^(\d+)x(\d+)$/ && $corr ne "${CW}x${CH}") {
+            my ($aw, $ah) = ($1 + 0, $2 + 0);
+            if ($aw > 0 && $ah > 0) {
+                print "⚠️ 分辨率校正: 请求 ${CW}x${CH}, 实际为 ${aw}x${ah}, 已按实际分辨率推流\n";
+                ($CW, $CH) = ($aw, $ah);
+            }
+        }
+        my $tres = $set->{target_res} // "-";
+        if ($set->{native}) {
+            my ($sres, $tfps) = ($set->{sensor_mode} // "-", $set->{target_fps} // "-");
+            print "🎯 ISP 设定: sensor ${sres} -> ${tres} @ ${tfps}fps (subdev " . ($set->{subdev} // "-") . ")\n";
+            print "   ↳ 回读 sensor 模式: " . ($set->{actual_sensor_res} // "-")
+                . ($set->{sensor_ok} ? " ✓" : " ✗ (未生效, 走实测校正)") . "\n";
+        } else {
+            print "⏩ ISP: ${tres}, 目标帧率非 sensor 原生模式 -> 沿用当前并实测校正\n";
+        }
+    } else {
+        print "⚠️ ISP 设定失败: " . (($set && $set->{error}) || "unknown") . ", 沿用当前模式并实测校正\n";
+    }
+    # 实测校正: 高帧率(>=90)模式切换过渡期需较长抓帧(900), 其余 60 帧即可
+    my $frames = ($CFG{CAPTURE_FPS} >= 90) ? 900 : 60;
+    my $actual = actual_fps($FF_DEV, $frames);
+    $CFPS = $actual > 0 ? $actual : $CFG{CAPTURE_FPS};
+    if ($CFG{CAPTURE_FPS} != $CFPS) {
+        print "⚠️ 校正提示: 配置 $CFG{CAPTURE_RES}\@$CFG{CAPTURE_FPS}fps 有误, 实际为 ${CFPS}fps, 已自动按正确帧率推流\n";
+    } else {
+        print "ℹ️ 源类型 ISP: 采集帧率 ${CFPS}fps (实测一致)\n";
+    }
+} else {
+    $CFPS = $CFG{CAPTURE_FPS};
+    print "ℹ️ 源类型 ${SRC_TYPE}: 采集帧率 ${CFPS}fps (可调)\n";
+}
+# 输出帧率 (STREAM_FPS): auto 或空 = 跟随采集帧率, 数值 = 固定输出帧率
+my $SFPS = (defined $CFG{STREAM_FPS} && $CFG{STREAM_FPS} =~ /^\d+$/) ? $CFG{STREAM_FPS} + 0 : $CFPS;
 my ($EC, $EB, $EG, $EE, $ERM) = ($CFG{ENCODER_CODEC}, $CFG{ENCODER_BITRATE}, $CFG{ENCODER_GOP}, $CFG{ENCODER_EXTRA}, $CFG{ENCODER_RC_MODE});
 my ($RTSP, $FM)   = ($CFG{RTSP_URL}, $CFG{FORCE_MODESETTING});
 my ($AE, $ADEV, $ARATE, $ACH, $ABIT) = ($CFG{AUDIO_ENABLE}, $CFG{AUDIO_DEVICE}, $CFG{AUDIO_SAMPLERATE}, $CFG{AUDIO_CHANNELS}, $CFG{AUDIO_BITRATE});
@@ -971,6 +1087,40 @@ $ENV{GST_MPP_VIDEODEC_DEFAULT_FORMAT}   = 'NV12';
 $ENV{GST_VIDEO_CONVERT_USE_RGA}         = 1;
 $ENV{GST_VIDEO_FLIP_USE_RGA}            = 1;
 
+# 信号升级阶梯: SIGINT(优雅) -> 轮询退出 -> SIGTERM -> 轮询 -> SIGKILL(兜底)
+# 解决某些 sensor 下 ffmpeg/gst 收到 SIGINT 后阻塞在 streamoff/编码器排空导致卡死:
+#   正常 sensor 走优雅关闭, 卡死 sensor 被限时保证 SIGKILL, 避免 --stop 无限挂起
+sub stop_escalate {
+    my ($pat, $grace_s) = @_;
+    $grace_s //= 2;
+    my @pids = proc_find($pat);
+    return 0 unless @pids;
+
+    # 1. SIGINT 优雅停止, 轮询等待退出 (proc_alive 内部回收已退出子进程)
+    kill(2, @pids);
+    my $dl = time() + $grace_s;
+    while (time() < $dl) {
+        @pids = grep { proc_alive($_) } @pids;
+        last unless @pids;
+        select(undef, undef, undef, 0.2);
+    }
+    return 1 unless @pids;
+
+    # 2. SIGTERM, 再短轮询
+    kill(15, @pids);
+    $dl = time() + 1;
+    while (time() < $dl) {
+        @pids = grep { proc_alive($_) } @pids;
+        last unless @pids;
+        select(undef, undef, undef, 0.2);
+    }
+    return 1 unless @pids;
+
+    # 3. SIGKILL 兜底 (不可捕获, 保证终止)
+    kill(9, @pids);
+    return 1;
+}
+
 sub stop_apps {
     my ($mode) = @_;
     print "⚠️ 停止后台进程...\n";
@@ -979,19 +1129,11 @@ sub stop_apps {
     print $lfh "STOP";
     close $lfh;
 
-    my $ffk = proc_kill_match(2, $FF_PAT);
-    if ($ffk) {
-        print "1. 停止推流\n";
-        sleep 3;
-        proc_kill_match(9, $FF_PAT);
-    }
+    my $ffk = stop_escalate($FF_PAT, 2);
+    if ($ffk) { print "1. 停止推流\n"; }
 
-    my $gstk = proc_kill_match(2, $GST_PAT);
-    if ($gstk) {
-        print "2. 停止本地显示\n";
-        sleep 1;
-        proc_kill_match(9, $GST_PAT);
-    }
+    my $gstk = stop_escalate($GST_PAT, 1);
+    if ($gstk) { print "2. 停止本地显示\n"; }
 
     # 兜底清理音频采集进程 (arecord 由 ffmpeg 被杀后的 SIGPIPE 带出)
     if ($AE) { proc_kill_match(9, "arecord"); }
@@ -1062,6 +1204,15 @@ if ($DE) {
     my $kmssink_opts = "sync=false force-modesetting=${FM}${KMSSINK_OPTS_EXTRA}";
     print "1. 启动本地显示路径 ($GST_DEV)...\n";
 
+    # 显示帧率上限: 自动从 DRM 读刷新率; 仅当采集帧率 > 刷新率时用 videorate 纯丢帧限流
+    # (CFPS<=刷新率时不加, 避免 videorate 把低帧率补帧造成 CPU 浪费)
+    my $gst_rate = "";
+    my $disp_fps = display_refresh_hz($DCI, $DCN);
+    if ($disp_fps > 0 && defined $CFPS && $CFPS > $disp_fps) {
+        $gst_rate = " ! videorate ! video/x-raw,framerate=${disp_fps}/1";
+        print "⚡ 显示限流: 采集 ${CFPS}fps > 面板 ${disp_fps}Hz, videorate 纯丢帧降为 ${disp_fps}fps\n";
+    }
+
     # 本地显示 OSD (独立配置, 与推流互不相干)
     my $gst_osd = gst_osd_build($DOE, $DOTEXT, $DOTS, $DOTSF, $DOFS, $DOFONT, $VW, $VH);
 
@@ -1069,6 +1220,7 @@ if ($DE) {
     # 注意: $FLIP 前需保留空格, 避免与 OSD 滤镜串拼接成 "true! videoflip" 导致解析失败
     $gst_cmd = "gst-launch-1.0 v4l2src device=$GST_DEV io-mode=4 "
              . "! video/x-raw,width=$VW,height=$VH,format=NV12 "
+             . $gst_rate
              . $gst_osd
              . " $FLIP"
              . " ! kmssink $kmssink_opts";
@@ -1089,20 +1241,21 @@ if ($DE) {
 if ($SE) {
     print "2. 启动推流路径 ($FF_DEV)...\n";
 
-    $enc_params = encoder_build_params($EC, $EB, $EG, $EE, $CFPS, $ERM, $CW, $CH);
+    $enc_params = encoder_build_params($EC, $EB, $EG, $EE, $SFPS, $ERM, $CW, $CH);
 
     # 音频参数 (开关可控): arecord 采集经管道输入 ffmpeg
     my ($audio_pipe, $audio_in, $audio_out) = audio_build_params($AE, $ADEV, $ARATE, $ACH, $ABIT);
 
-    # OSD 滤镜链: fps + 左上角固定文字 + 右上角时间戳, 字号按分辨率自动计算
-    my $vf = osd_build_vf($OE, $OFONT, $OTEXT, $OTS, $OTSF, $OFS, $CW, $CH, $CFPS);
+    # OSD 滤镜链: fps(=输出帧率 SFPS, 放最前端统一时间戳) + 左上角固定文字 + 右上角时间戳
+    # 帧率统一由 -vf fps 控制 (实测 mpp 可从 PTS 正确识别 30/15), 不再使用输出端 -r
+    my $vf = osd_build_vf($OE, $OFONT, $OTEXT, $OTS, $OTSF, $OFS, $CW, $CH, $SFPS);
 
     $ff_cmd = $audio_pipe
             . "ffmpeg -f v4l2 -framerate $CFPS -video_size \"${CW}x${CH}\" "
             . "-pix_fmt nv12 -i $FF_DEV"
             . $audio_in
             . " -vf \"${vf}\" "
-            . "-vcodec $EC -r $CFPS $enc_params"
+            . "-vcodec $EC $enc_params"
             . $audio_out
             . " -f rtsp \"$RTSP\"";
 
@@ -1137,7 +1290,7 @@ if ($DE) {
 }
 
 if ($SE) {
-    print "👉 推流: ${FF_DEV} ${CW}x${CH}\n"
+    print "👉 推流: ${FF_DEV} ${CW}x${CH} 采集${CFPS}fps 输出${SFPS}fps\n"
         . "👉 RTSP: ${RTSP}\n"
         . "👉 编码参数: ${enc_params}\n"
         . "👉 音频: " . ($AE ? "ON (${ADEV} ${ARATE}Hz)" : "OFF") . "\n"
