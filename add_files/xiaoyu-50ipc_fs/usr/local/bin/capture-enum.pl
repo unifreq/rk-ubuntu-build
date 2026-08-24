@@ -927,24 +927,28 @@ sub set_isp_fmt {
         ($w, $h) = ($cw, $ch);
     }
 
-    # 2. 设 ISP mainpath 输出分辨率 (始终, 已用校正后值)
-    my $r2 = sh("v4l2-ctl -d $dev --set-fmt-video=width=${w},height=${h},pixelformat=NV12 2>&1");
-    # 回读 mainpath 实际输出分辨率 (rkisp 可能钳制到 sensor 能力范围, 供分辨率校正)
-    my $actual_out = mainpath_fmt_now($dev);
-
     my ($subdev, $sensor_ok, $actual_res) = ("", 0, "");
+
+    # 2. 先切 sensor 原生模式 (顺序关键: 须让 CIF/ISP 输入先就绪, 再设 mainpath 输出.
+    #    反向顺序会让 ISP 按旧输入(如 2560x1440)计算输出配置, STREAMON 触发
+    #    CIF_ISP_PIC_SIZE_ERROR -> EINVAL, 且 sensor 可能停在 ~60fps 而非目标 120fps)
     if ($smode) {
         my ($sw, $sh) = split /x/, $smode;
         $subdev = find_subdev_node($ent);
         if ($subdev) {
             # 设 sensor 模式 (code 0x2007 = SBGGR10_1X10, sc450ai 2-lane raw)
             sh("v4l2-ctl -d $subdev --set-subdev-fmt pad=0,width=${sw},height=${sh},code=0x2007 2>&1");
-            sleep 1;   # 模式切换过渡期
+            sleep 2;   # 模式切换过渡期 (120fps 模式切换后给足稳定时间, 避免旧 VTS 滞留)
             # 回读校验
             $actual_res = sensor_fmt_now($ent);
             $sensor_ok = ($actual_res eq $smode) ? 1 : 0;
         }
     }
+
+    # 3. 设 ISP mainpath 输出分辨率 (始终, sensor 已就绪后用校正后值)
+    my $r2 = sh("v4l2-ctl -d $dev --set-fmt-video=width=${w},height=${h},pixelformat=NV12 2>&1");
+    # 回读 mainpath 实际输出分辨率 (rkisp 可能钳制到 sensor 能力范围, 供分辨率校正)
+    my $actual_out = mainpath_fmt_now($dev);
 
     return {
         ok           => 1,

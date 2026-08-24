@@ -1213,7 +1213,7 @@ if ($DE) {
     my $gst_rate = "";
     my $disp_fps = display_refresh_hz($DCI, $DCN);
     if ($disp_fps > 0 && defined $CFPS && $CFPS > $disp_fps) {
-        $gst_rate = " ! videorate ! video/x-raw,framerate=${disp_fps}/1";
+        $gst_rate = " ! videorate drop-only=true ! video/x-raw,framerate=${disp_fps}/1";
         print "⚡ 显示限流: 采集 ${CFPS}fps > 面板 ${disp_fps}Hz, videorate 纯丢帧降为 ${disp_fps}fps\n";
     }
 
