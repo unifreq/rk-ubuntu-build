@@ -1024,6 +1024,25 @@ my ($DCI, $DCN)   = ($CFG{DISPLAY_CONNECTOR_ID}, $CFG{DISPLAY_CONNECTOR_NAME});
 my ($CW, $CH)     = parse_res($CFG{CAPTURE_RES});
 ($CW, $CH)        = (2560, 1440) unless defined $CW && defined $CH;
 
+die "❌ 本地显示和推流不能同时关闭\n" unless $DE || $SE;
+
+my $LOCK = $opt{lockfile};
+my $FF_PAT  = build_pattern("ffmpeg", $FF_DEV);
+my $GST_PAT = build_pattern("gst-launch-1.0", $GST_DEV);
+my ($AE, $ADEV, $ARATE, $ACH, $ABIT) = ($CFG{AUDIO_ENABLE}, $CFG{AUDIO_DEVICE}, $CFG{AUDIO_SAMPLERATE}, $CFG{AUDIO_CHANNELS}, $CFG{AUDIO_BITRATE});
+my ($EC, $EB, $EG, $EE, $ERM) = ($CFG{ENCODER_CODEC}, $CFG{ENCODER_BITRATE}, $CFG{ENCODER_GOP}, $CFG{ENCODER_EXTRA}, $CFG{ENCODER_RC_MODE});
+my ($RTSP, $FM)   = ($CFG{RTSP_URL}, $CFG{FORCE_MODESETTING});
+my ($OE, $OFONT, $OTEXT, $OTS, $OTSF, $OFS) = ($CFG{OSD_ENABLE}, $CFG{OSD_FONT}, $CFG{OSD_TEXT}, $CFG{OSD_TIMESTAMP}, $CFG{OSD_TIMESTAMP_FORMAT}, $CFG{OSD_FONTSIZE});
+my ($DOE, $DOTEXT, $DOTS, $DOTSF, $DOFS, $DOFONT) = ($CFG{DISPLAY_OSD_ENABLE}, $CFG{DISPLAY_OSD_TEXT}, $CFG{DISPLAY_OSD_TIMESTAMP}, $CFG{DISPLAY_OSD_TIMESTAMP_FORMAT}, $CFG{DISPLAY_OSD_FONTSIZE}, $CFG{DISPLAY_OSD_FONT});
+
+# ---- 维护模式分派: 必须在任何 v4l2 触碰之前 ----
+# 采集进程运行中执行 S_FMT / 流式测量会触发内核报错:
+#   rkisp-vir0: rkisp_s_fmt_vid_cap_mplane queue busy
+# (webui /api/status 每 5s 轮询调用 capture.pl --status)
+if ($opt{stop})    { stop_apps("x");   print "已停止\n";    exit 0; }
+if ($opt{status})  { show_status($GST_DEV, $FF_DEV, $DE, $SE); exit 0; }
+if ($opt{restart}) { stop_apps("x");   sleep 2; }
+
 # 源类型识别 + 采集帧率 (E1)
 my $SRC_TYPE      = detect_source_type($FF_DEV);
 my $CFPS;
@@ -1069,17 +1088,6 @@ if ($SRC_TYPE eq "isp") {
 }
 # 输出帧率 (STREAM_FPS): auto 或空 = 跟随采集帧率, 数值 = 固定输出帧率
 my $SFPS = (defined $CFG{STREAM_FPS} && $CFG{STREAM_FPS} =~ /^\d+$/) ? $CFG{STREAM_FPS} + 0 : $CFPS;
-my ($EC, $EB, $EG, $EE, $ERM) = ($CFG{ENCODER_CODEC}, $CFG{ENCODER_BITRATE}, $CFG{ENCODER_GOP}, $CFG{ENCODER_EXTRA}, $CFG{ENCODER_RC_MODE});
-my ($RTSP, $FM)   = ($CFG{RTSP_URL}, $CFG{FORCE_MODESETTING});
-my ($AE, $ADEV, $ARATE, $ACH, $ABIT) = ($CFG{AUDIO_ENABLE}, $CFG{AUDIO_DEVICE}, $CFG{AUDIO_SAMPLERATE}, $CFG{AUDIO_CHANNELS}, $CFG{AUDIO_BITRATE});
-my ($OE, $OFONT, $OTEXT, $OTS, $OTSF, $OFS) = ($CFG{OSD_ENABLE}, $CFG{OSD_FONT}, $CFG{OSD_TEXT}, $CFG{OSD_TIMESTAMP}, $CFG{OSD_TIMESTAMP_FORMAT}, $CFG{OSD_FONTSIZE});
-my ($DOE, $DOTEXT, $DOTS, $DOTSF, $DOFS, $DOFONT) = ($CFG{DISPLAY_OSD_ENABLE}, $CFG{DISPLAY_OSD_TEXT}, $CFG{DISPLAY_OSD_TIMESTAMP}, $CFG{DISPLAY_OSD_TIMESTAMP_FORMAT}, $CFG{DISPLAY_OSD_FONTSIZE}, $CFG{DISPLAY_OSD_FONT});
-my $LOCK = $opt{lockfile};
-
-my $FF_PAT  = build_pattern("ffmpeg", $FF_DEV);
-my $GST_PAT = build_pattern("gst-launch-1.0", $GST_DEV);
-
-die "❌ 本地显示和推流不能同时关闭\n" unless $DE || $SE;
 
 delete @ENV{qw(GST_V4L2_PREFERRED_FOURCC GST_VIDEO_CONVERT_PREFERRED_FORMAT)};
 $ENV{GST_MPP_VIDEODEC_DEFAULT_ARM_AFBC} = 1;
@@ -1148,10 +1156,6 @@ sub stop_apps {
 
 $SIG{INT}  = sub { stop_apps("self"); };
 $SIG{TERM} = sub { stop_apps("self"); };
-
-if ($opt{stop})    { stop_apps("x");   print "已停止\n";    exit 0; }
-if ($opt{status})  { show_status($GST_DEV, $FF_DEV, $DE, $SE); exit 0; }
-if ($opt{restart}) { stop_apps("x");   sleep 2; }
 
 # ---- 3A 管理 ----
 if ($R3A) { restart_3a_service(); }
