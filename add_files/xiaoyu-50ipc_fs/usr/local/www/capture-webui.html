@@ -247,6 +247,7 @@
         <div class="kv"><span>音频</span><span id="ov-audio">-</span></div>
         <div class="kv"><span>采集分辨率</span><span id="ov-capres">-</span></div>
         <div class="kv"><span>采集帧率</span><span id="ov-capfps">-</span></div>
+        <div class="kv"><span>输出帧率</span><span id="ov-streamfps">-</span></div>
         <div class="kv"><span>编码器</span><span id="ov-codec">-</span></div>
         <div class="kv"><span>码率</span><span id="ov-bitrate">-</span></div>
         <div class="kv"><span>码率模式</span><span id="ov-rc">-</span></div>
@@ -433,6 +434,7 @@ async function refreshStatus() {
     $("ov-audio").textContent = onoff(o.audio);
     $("ov-capres").textContent = o.cap_res;
     $("ov-capfps").textContent = o.cap_fps;
+    $("ov-streamfps").textContent = o.stream_fps;
     $("ov-codec").textContent = o.codec;
     $("ov-bitrate").textContent = o.bitrate;
     $("ov-rc").textContent = o.rc_mode;

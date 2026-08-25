@@ -36,7 +36,7 @@ from urllib.parse import urlparse, parse_qs
 # ---------------------------------------------------------------------------
 # 常量与配置
 # ---------------------------------------------------------------------------
-VERSION = "1.1.0"                    # 软件版本
+VERSION = "1.2.0"                    # 软件版本
 SERVICE = "capture.service"
 CONF_PATH = "/etc/capture.conf"
 CONF_DEFAULT = "/etc/capture.conf.default"   # 首次启动备份的默认配置
@@ -328,6 +328,7 @@ def capture_process_summary():
         "audio": cfg.get("AUDIO_ENABLE", "-"),
         "cap_res": cfg.get("CAPTURE_RES", "-"),
         "cap_fps": cfg.get("CAPTURE_FPS", "-"),
+        "stream_fps": cfg.get("STREAM_FPS", "-"),
         "codec": cfg.get("ENCODER_CODEC", "-"),
         "bitrate": cfg.get("ENCODER_BITRATE", "-"),
         "rc_mode": cfg.get("ENCODER_RC_MODE", "-"),

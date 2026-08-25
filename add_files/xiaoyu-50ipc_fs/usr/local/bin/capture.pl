@@ -2,7 +2,7 @@
 #
 # capture.pl - Rockchip RV1126B 摄像头采集与显示管线
 #
-# 版本:  v3.0.0
+# 版本:  v3.2.0
 # 作者:  flippy <flippy@sina.com>
 # 许可:  GPL v2 (GNU General Public License version 2)
 #
@@ -18,7 +18,7 @@
 #
 #
 use strict;
-use constant VERSION => 'v3.1.0';
+use constant VERSION => 'v3.2.0';
 use constant AUTHOR  => 'flippy <flippy@sina.com>';
 use constant LICENSE => 'GPL v2';
 use warnings;
