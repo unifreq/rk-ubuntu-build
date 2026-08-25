@@ -828,7 +828,7 @@ sub encoder_build_params {
 
     if ($codec eq "h264_rkmpp") {
         my $lv = h264_auto_level($w, $h);
-        $params .= " -rc_mode ${rcmode} -profile high -level $lv -qp_init $qpi -qp_min $qpmn -qp_max $qpmx";
+        $params .= " -rc_mode ${rcmode} -profile:v high -level $lv -qp_init $qpi -qp_min $qpmn -qp_max $qpmx";
     } elsif ($codec eq "hevc_rkmpp") {
         my $lv = hevc_auto_level($w, $h);
         $params .= " -rc_mode ${rcmode} -level $lv -tier main -qp_init $qpi -qp_min $qpmn -qp_max $qpmx";
