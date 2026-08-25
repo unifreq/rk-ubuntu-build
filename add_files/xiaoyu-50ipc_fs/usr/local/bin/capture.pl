@@ -1117,6 +1117,14 @@ if ($SRC_TYPE eq "isp") {
     } else {
         print "⚠️ ISP 设定失败: " . (($set && $set->{error}) || "unknown") . ", 沿用当前模式并实测校正\n";
     }
+    # 3A 重同步: sensor 模式切换后(如 30fps->120fps), 长期运行的 rkaiq_3A 仍按旧模式
+    # 设置曝光/VTS, 导致 sensor/ISP 时序错乱 -> mainpath STREAMON CIF_ISP_PIC_SIZE_ERROR -> EINVAL.
+    # 切换完成后重启 3A, 令其按新模式重初始化 (实测: 重启后 mainpath 120fps 正常)
+    if ($set && $set->{ok} && $set->{changed}) {
+        print "🔄 sensor 模式已切换, 重启 3A 使其按新模式重初始化...\n";
+        restart_3a_service();
+        wait_for_3a_ready();
+    }
     # 实测校正: 高帧率(>=90)模式切换过渡期需较长抓帧(900), 其余 60 帧即可
     my $frames = ($CFG{CAPTURE_FPS} >= 90) ? 900 : 60;
     my $actual = actual_fps($FF_DEV, $frames);

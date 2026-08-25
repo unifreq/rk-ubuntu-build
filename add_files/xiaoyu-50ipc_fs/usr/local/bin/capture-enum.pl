@@ -928,6 +928,7 @@ sub set_isp_fmt {
     }
 
     my ($subdev, $sensor_ok, $actual_res) = ("", 0, "");
+    my $mode_before = $smode ? sensor_fmt_now($ent) : "";
 
     # 2. 先切 sensor 原生模式 (顺序关键: 须让 CIF/ISP 输入先就绪, 再设 mainpath 输出.
     #    反向顺序会让 ISP 按旧输入(如 2560x1440)计算输出配置, STREAMON 触发
@@ -953,6 +954,8 @@ sub set_isp_fmt {
     return {
         ok           => 1,
         native       => $smode ? 1 : 0,
+        # sensor 模式是否真的变化 (供上层判断是否需要重启 rkaiq_3A 重新初始化)
+        changed      => ($smode && $sensor_ok && $mode_before && $mode_before ne $actual_res) ? 1 : 0,
         sensor       => $model,
         sensor_mode  => $smode || "",
         sensor_ok    => $sensor_ok,
