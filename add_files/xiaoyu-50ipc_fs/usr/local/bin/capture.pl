@@ -845,19 +845,63 @@ sub encoder_build_params {
     return $params;
 }
 
+our $AUDIO_DEV_USED = "";
+
+# 探测可用的音频采集设备 (arecord):
+# 部分发行版 (如 Debian12/bookworm + RV1126 ACodec) 下 "-D default" 会 SIGBUS 崩溃
+# (WAV 只写 44B 头部即 "Bus error"), 而特定设备名 (如 mic4) 正常. 依次探测候选设备,
+# 取第一个能采到实际数据 (退出码 0 且文件 > 100B) 且不崩溃/不挂起的.
+sub audio_device_probe {
+    my ($device, $rate, $ch) = @_;
+    $rate //= 48000; $ch //= 1;
+    my $probe = "/tmp/.arecord_probe.wav";
+
+    my @cands = ($device);
+    my $lst = `arecord -L 2>/dev/null`;
+    for my $ln (split /\n/, $lst) {
+        $ln =~ s/\s+$//;
+        next unless $ln =~ /^[A-Za-z0-9_]+$/;   # 仅简单设备名 (排除 hw:/plughw:/sysdefault: 等易挂起项)
+        next if $ln =~ /^(null|playback|speaker_downmix|default)$/;
+        push @cands, $ln;
+    }
+    my %seen; my @uniq;
+    for my $d (@cands) { push @uniq, $d unless $seen{$d}++; }
+
+    for my $d (@uniq) {
+        unlink $probe;
+        system("timeout 3 arecord -D '$d' -f S16_LE -r $rate -c $ch -d 1 -q $probe 2>/dev/null");
+        my $rc = $? >> 8;
+        next unless $rc == 0;
+        next unless -f $probe && -s $probe > 100;   # 有实际数据 (仅 44B 头部视为崩溃/无输出)
+        unlink $probe;
+        return $d;
+    }
+    unlink $probe if -e $probe;
+    return "";
+}
+
 sub audio_build_params {
     my ($enable, $device, $samplerate, $channels, $bitrate) = @_;
 
     unless ($enable) {
         print "⏭️ 音频推流已关\n";
+        $AUDIO_DEV_USED = "";
         return ("", "", "");
     }
 
-    # 注意: ffmpeg 的 alsa 输入在 RV1126 ACodec 上不可用 (Cannot allocate memory),
-    # 因此改用 arecord (已验证可用) 采集, 经管道以原始 PCM 输入 ffmpeg
-    print "🎙️ 音频输入: ${device} ${samplerate}Hz ${channels}ch (AAC ${bitrate})\n";
+    # 自动探测可用采集设备: 配置的 default 在部分发行版 (bookworm) 会 SIGBUS 崩溃,
+    # 自动回退到可用设备 (如 mic4); 全部失败则禁用音频, 避免哑音轨拖垮 WebRTC 同步
+    my $dev = audio_device_probe($device, $samplerate, $channels);
+    unless ($dev) {
+        print "⚠️ 未找到可用音频采集设备, 本次推流禁用音频 (避免哑音轨导致 WebRTC 缓冲)\n";
+        $AUDIO_DEV_USED = "";
+        return ("", "", "");
+    }
+    $AUDIO_DEV_USED = $dev;
+    my $hint = ($dev ne $device) ? " (default 不可用, 自动回退)" : "";
+    print "🎙️ 音频输入: ${dev} ${samplerate}Hz ${channels}ch (AAC ${bitrate})${hint}\n";
 
-    my $pipe = "arecord -D ${device} -f S16_LE -r ${samplerate} -c ${channels} | ";
+    my $pipe = "arecord -D ${dev} -f S16_LE -r ${samplerate} -c ${channels} | ";
     my $ain  = " -f s16le -ar ${samplerate} -ac ${channels} -i -";
     my $aout = " -c:a aac -b:a ${bitrate}";
 
@@ -1297,7 +1341,7 @@ if ($SE) {
     print "👉 推流: ${FF_DEV} ${CW}x${CH} 采集${CFPS}fps 输出${SFPS}fps\n"
         . "👉 RTSP: ${RTSP}\n"
         . "👉 编码参数: ${enc_params}\n"
-        . "👉 音频: " . ($AE ? "ON (${ADEV} ${ARATE}Hz)" : "OFF") . "\n"
+        . "👉 音频: " . ($AUDIO_DEV_USED ? "ON (${AUDIO_DEV_USED} ${ARATE}Hz)" : "OFF") . "\n"
         . "👉 OSD: " . ($OE ? "ON (文字=\"${OTEXT}\")" : "OFF") . "\n";
 }
 
