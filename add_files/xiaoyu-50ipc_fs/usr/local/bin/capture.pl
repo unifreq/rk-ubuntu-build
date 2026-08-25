@@ -1071,6 +1071,9 @@ my ($CW, $CH)     = parse_res($CFG{CAPTURE_RES});
 die "❌ 本地显示和推流不能同时关闭\n" unless $DE || $SE;
 
 my $LOCK = $opt{lockfile};
+# ffmpeg stderr 日志: 存 /var/log/capture 并配 logrotate 轮转 (copytruncate), 避免 7x24 运行累积
+my $FF_ERR_LOG = "/var/log/capture/ffmpeg_stderr.log";
+system("mkdir -p /var/log/capture 2>/dev/null");
 my $FF_PAT  = build_pattern("ffmpeg", $FF_DEV);
 my $GST_PAT = build_pattern("gst-launch-1.0", $GST_DEV);
 my ($AE, $ADEV, $ARATE, $ACH, $ABIT) = ($CFG{AUDIO_ENABLE}, $CFG{AUDIO_DEVICE}, $CFG{AUDIO_SAMPLERATE}, $CFG{AUDIO_CHANNELS}, $CFG{AUDIO_BITRATE});
@@ -1317,7 +1320,7 @@ if ($SE) {
 
     print "🎬 FFmpeg 命令: $ff_cmd\n";
 
-    my $errf = "/tmp/ffmpeg_stderr.log";
+    my $errf = $FF_ERR_LOG;
     unlink $errf;
     $pid_ff = proc_spawn($ff_cmd, $errf);
     sleep 2;
@@ -1382,7 +1385,7 @@ while (1) {
 
     if ($SE && !proc_alive($pid_ff)) {
         print "⚠️ 推流退出, 重启...\n";
-        my $errf = "/tmp/ffmpeg_stderr.log";
+        my $errf = $FF_ERR_LOG;
         unlink $errf;
         $pid_ff = proc_spawn($ff_cmd, $errf);
     }

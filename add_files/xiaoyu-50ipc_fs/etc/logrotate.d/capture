@@ -1,0 +1,13 @@
+# capture 服务日志轮转 (ffmpeg_stderr.log 等, 7x24 运行会持续累积)
+# copytruncate: ffmpeg 保持文件 fd 打开, 复制后截断原文件, 无需重启进程
+/var/log/capture/*.log {
+    daily
+    rotate 7
+    size 5M
+    compress
+    delaycompress
+    copytruncate
+    missingok
+    notifempty
+    create 0644 root root
+}
