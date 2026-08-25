@@ -128,7 +128,7 @@
       ]
     },
     "CISHdrSet": {
-      "hdr_en": 1,
+      "hdr_en": 0,
       "hdr_mode": "RK_AIQ_ISP_HDR_MODE_2_LINE_HDR",
       "line_mode": "RKAIQ_SENSOR_HDR_MODE_STAGGER"
     },

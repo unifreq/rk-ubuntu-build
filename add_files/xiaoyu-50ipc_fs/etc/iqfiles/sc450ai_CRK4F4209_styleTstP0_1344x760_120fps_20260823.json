@@ -1,8 +1,8 @@
 {
   "sensor_calib": {
     "resolution": {
-      "width": 2688,
-      "height": 1520
+      "width": 1344,
+      "height": 760
     },
     "Gain2Reg": {
       "GainMode": "EXPGAIN_MODE_LINEAR",
@@ -81,7 +81,7 @@
           },
           "CISTimeRegMax": {
             "Coeff": [
-              180,
+              45,
               0,
               0
             ]
@@ -128,7 +128,7 @@
       ]
     },
     "CISHdrSet": {
-      "hdr_en": 1,
+      "hdr_en": 0,
       "hdr_mode": "RK_AIQ_ISP_HDR_MODE_2_LINE_HDR",
       "line_mode": "RKAIQ_SENSOR_HDR_MODE_STAGGER"
     },
@@ -1516,8 +1516,8 @@
                 "initExp": {
                   "sw_aeT_initTime_val": [
                     0.0005,
-                    0.003,
-                    0.003
+                    0.00083,
+                    0.00083
                   ],
                   "sw_aeT_initGain_val": [
                     1,
@@ -1534,11 +1534,11 @@
                   "sw_aeT_route_len": 6,
                   "sw_aeT_frm0Time_dot": [
                     0,
-                    0.003,
-                    0.003,
-                    0.003,
-                    0.003,
-                    0.003
+                    0.00083,
+                    0.00083,
+                    0.00083,
+                    0.00083,
+                    0.00083
                   ],
                   "sw_aeT_frm0Gain_dot": [
                     1,
@@ -1558,11 +1558,11 @@
                   ],
                   "sw_aeT_frm1Time_dot": [
                     0,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075
                   ],
                   "sw_aeT_frm1Gain_dot": [
                     1,
@@ -1582,11 +1582,11 @@
                   ],
                   "sw_aeT_frm2Time_dot": [
                     0,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075
                   ],
                   "sw_aeT_frm2Gain_dot": [
                     1,
@@ -73755,22 +73755,22 @@
             },
             "ldc": {
               "opMode": "RK_AIQ_OP_MODE_AUTO",
-              "en": 1,
+              "en": 0,
               "bypass": 0,
               "tunning": {
                 "autoGenMesh": {
                   "lensDistorCoeff": {
-                    "sw_ldcC_opticCenter_x": 1337.9169919102,
-                    "sw_ldcC_opticCenter_y": 758.387392310821,
+                    "sw_ldcC_opticCenter_x": 1250.91032187142,
+                    "sw_ldcC_opticCenter_y": 694.047878405858,
                     "sw_ldcC_lensDistor_coeff": [
-                      -1562.62277268854,
-                      0.0003386350813182,
-                      -1.601044873E-7,
-                      1.063694E-10
+                      -3955.1134488565,
+                      0.0000680734348108,
+                      2.52528715E-8,
+                      -1.16694E-11
                     ]
                   },
-                  "sw_ldcT_correctStrg_val": 200,
-                  "sw_ldcC_correctStrg_maxLimit": 217,
+                  "sw_ldcT_correctStrg_val": 255,
+                  "sw_ldcC_correctStrg_maxLimit": 254,
                   "sw_ldcT_saveMaxFovX_bit": 0
                 },
                 "extMeshFile": {
@@ -79585,8 +79585,8 @@
                 "initExp": {
                   "sw_aeT_initTime_val": [
                     0.0005,
-                    0.003,
-                    0.003
+                    0.00083,
+                    0.00083
                   ],
                   "sw_aeT_initGain_val": [
                     1,
@@ -79603,11 +79603,11 @@
                   "sw_aeT_route_len": 6,
                   "sw_aeT_frm0Time_dot": [
                     0,
-                    0.003,
-                    0.003,
-                    0.003,
-                    0.003,
-                    0.003
+                    0.00083,
+                    0.00083,
+                    0.00083,
+                    0.00083,
+                    0.00083
                   ],
                   "sw_aeT_frm0Gain_dot": [
                     1,
@@ -79627,11 +79627,11 @@
                   ],
                   "sw_aeT_frm1Time_dot": [
                     0,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075
                   ],
                   "sw_aeT_frm1Gain_dot": [
                     1,
@@ -79651,11 +79651,11 @@
                   ],
                   "sw_aeT_frm2Time_dot": [
                     0,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075
                   ],
                   "sw_aeT_frm2Gain_dot": [
                     1,
@@ -153300,8 +153300,8 @@
                 "initExp": {
                   "sw_aeT_initTime_val": [
                     0.00065,
-                    0.02999,
-                    0.02999
+                    0.0075,
+                    0.0075
                   ],
                   "sw_aeT_initGain_val": [
                     1,
@@ -153318,11 +153318,11 @@
                   "sw_aeT_route_len": 6,
                   "sw_aeT_frm0Time_dot": [
                     0,
-                    0.003,
-                    0.003,
-                    0.003,
-                    0.003,
-                    0.003
+                    0.00083,
+                    0.00083,
+                    0.00083,
+                    0.00083,
+                    0.00083
                   ],
                   "sw_aeT_frm0Gain_dot": [
                     1,
@@ -153342,11 +153342,11 @@
                   ],
                   "sw_aeT_frm1Time_dot": [
                     0,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075
                   ],
                   "sw_aeT_frm1Gain_dot": [
                     1,
@@ -153366,11 +153366,11 @@
                   ],
                   "sw_aeT_frm2Time_dot": [
                     0,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.03
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075,
+                    0.0075
                   ],
                   "sw_aeT_frm2Gain_dot": [
                     1,
