@@ -36,7 +36,7 @@ from urllib.parse import urlparse, parse_qs
 # ---------------------------------------------------------------------------
 # 常量与配置
 # ---------------------------------------------------------------------------
-VERSION = "1.3.2"                    # 软件版本
+VERSION = "1.3.4"                    # 软件版本
 SERVICE = "capture.service"
 CONF_PATH = "/etc/capture.conf"
 CONF_DEFAULT = "/etc/capture.conf.default"   # 首次启动备份的默认配置
@@ -130,6 +130,11 @@ CONFIG_SCHEMA = [
      "help": "CBR 恒定码率最稳(均值=目标); VBR 真动态范围(150%*T/3*T, 静态可降码率/动态有头寸, 均值略高于目标); AVBR 质量自适应, 实际均值约为目标的 60-70%(码率偏低为特性)"},
     {"key": "ENCODER_EXTRA",    "type": "str", "group": "采集->推流", "subgroup": "编码", "label": "额外参数",
      "help": "追加到自动参数末尾并覆盖, 如 -qp_max 30"},
+    {"key": "ENCODER_INTRAREFRESH","type": "select", "group": "采集->推流", "subgroup": "编码", "label": "直播去块刷新",
+     "options": ["off", "on"],
+     "help": "开启后用逐行分布刷新取代周期性 IDR 关键帧, 可消除关键帧突发导致的卡顿; 但码流不再有整帧 IDR, WebRTC/PotPlayer 等依赖关键帧的播放器将无法起播, 故默认 off"},
+    {"key": "RTSP_TRANSPORT",   "type": "select", "group": "采集->推流", "subgroup": "RTSP", "label": "RTSP 传输层",
+     "options": ["tcp", "udp"], "help": "RTSP 推流传输层: tcp 更稳 (无 UDP 丢包/乱序), 局域网推荐 tcp"},
     # 采集->推流 / 音频
     {"key": "AUDIO_ENABLE",     "type": "bool", "group": "采集->推流", "subgroup": "音频", "label": "音频推流",
      "help": "是否随视频推流麦克风音频"},

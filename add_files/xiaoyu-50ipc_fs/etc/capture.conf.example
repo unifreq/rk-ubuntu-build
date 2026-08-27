@@ -8,10 +8,16 @@
 # 取消注释即可启用对应配置组合。
 
 # ==============================================================================
+# --- 0. 系统 / 品牌 ---
+# ==============================================================================
+# BRAND_NAME: 品牌/产品名称, 用于 WebUI 标题/页头与 OSD 默认文字 (留空则用默认 小宇智联)
+BRAND_NAME="小宇智联"
+
+# ==============================================================================
 # --- 1. 功能开关 ---
 # ==============================================================================
 
-DISPLAY_ENABLE="false"
+DISPLAY_ENABLE="true"
 STREAM_ENABLE="true"
 
 # ==============================================================================
@@ -34,11 +40,11 @@ WAIT_3A="true"
 
 # FFMPEG CAM: 用于rtsp推流，通常采用rkisp_mainpath设备
 # 可使用 "media-ctl -d /dev/mediaX -e "rkisp_mainpath" 查到
-FFMPEG_CAM_DEV="/dev/video11"
+FFMPEG_CAM_DEV="/dev/video24"
 
 # GST CAM: 用于本地显示，通常采用rkisp_selfpath设备，或rkvpss_scale设备
 # 可使用 "media-ctl -d /dev/mediaX -e "rkisp_selfpath" 查到
-GST_CAM_DEV="/dev/video12"
+GST_CAM_DEV="/dev/video25"
 
 # ==============================================================================
 # --- 4. 本地显示屏参数 ---
@@ -46,7 +52,7 @@ GST_CAM_DEV="/dev/video12"
 # connector-id 的优先级比 connector-name 高
 # 强制指定显示设备(注释后为自动检测):
 DISPLAY_CONNECTOR_ID="-1"
-DISPLAY_CONNECTOR_NAME="HDMI-A-1"
+DISPLAY_CONNECTOR_NAME=""
 
 # DISPLAY_RES: 本地显示分辨率, 应为本显示器(DRM connector)模式列表中的有效模式.
 # 可用模式可用 modetest -M rockchip -c 或查看 /sys/class/drm/card*-*/modes 获取.
@@ -57,9 +63,9 @@ DISPLAY_CONNECTOR_NAME="HDMI-A-1"
 # 注意: FORCE_MODESETTING 必须为 true, kmssink 才会主动把 CRTC 设为 DISPLAY_RES 模式;
 #       false 时沿用当前模式会因与取流尺寸不匹配而报错.
 # 若仍反复退出, 请查看 /var/log/capture/gst_stderr.log 定位真实原因.
-DISPLAY_RES="1920x1080"
-DISPLAY_ROTATE="0"
-FORCE_MODESETTING="true"
+DISPLAY_RES="480x800"
+DISPLAY_ROTATE="270"
+FORCE_MODESETTING="false"
 
 # ==============================================================================
 # --- 5. 视频采集参数 ---
@@ -72,7 +78,7 @@ FORCE_MODESETTING="true"
 # STREAM_FPS:  输出帧率 (由滤镜 -vf fps 前置统一, 不再使用输出端 -r;
 #              默认 auto=跟随采集帧率; 升档=采集帧率整数倍(最高120), 降档=折半链 ÷2/÷4/÷8)
 
-CAPTURE_RES="3840x2160"
+CAPTURE_RES="2560x1440"
 CAPTURE_FPS="30"
 STREAM_FPS="auto"
 RTSP_URL="rtsp://127.0.0.1:8554/live/0"
@@ -132,7 +138,7 @@ RTSP_URL="rtsp://127.0.0.1:8554/live/0"
 #     -level 5.1                         (覆盖 level)
 
 # ENCODER_CODEC: 编码器类型 (h264_rkmpp / hevc_rkmpp)
-ENCODER_CODEC="hevc_rkmpp"
+ENCODER_CODEC="h264_rkmpp"
 
 # ENCODER_BITRATE: 目标码率, 格式为数字+单位(K/M), 如 8M / 12000K / 16000000 均支持
 #   2K (2560x1440) @30fps H.264 CBR 推荐 16M (高清高质量, 防马赛克最佳)
@@ -144,10 +150,20 @@ ENCODER_BITRATE="16M"
 ENCODER_GOP="auto"
 
 # ENCODER_RC_MODE: 码率控制模式 (CBR / VBR / AVBR)
-ENCODER_RC_MODE="VBR"
+ENCODER_RC_MODE="CBR"
 
 # ENCODER_EXTRA: 高级自定义参数 (追加末尾, 覆盖自动值), 留空表示全部自动
 ENCODER_EXTRA=""
+
+# ENCODER_INTRAREFRESH: 直播去块刷新 (on/off), 默认 off
+#   开启后用逐行分布刷新取代周期性 IDR 关键帧, 可消除关键帧突发导致的卡顿;
+#   但码流不再有整帧 IDR, WebRTC/PotPlayer 等依赖关键帧启动的播放器将无法起播,
+#   故默认关闭。如播放器支持且需消除周期性卡顿, 可手动改为 on。
+ENCODER_INTRAREFRESH="off"
+
+# RTSP_TRANSPORT: RTSP 推流传输层 (tcp/udp), 默认 tcp
+#   tcp 更稳 (无 UDP 丢包/乱序), 局域网推荐
+RTSP_TRANSPORT="tcp"
 
 # ==============================================================================
 # --- 7. 音频参数 (麦克风推流) ---
@@ -198,7 +214,7 @@ AUDIO_BITRATE="128k"
 OSD_ENABLE="true"
 OSD_FONT="/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"
 OSD_FONTSIZE="0"
-OSD_TEXT="Rock 4D"
+OSD_TEXT="RV1126B"
 OSD_TIMESTAMP="true"
 OSD_TIMESTAMP_FORMAT="%Y年%m月%d日 %H：%M：%S"
 
@@ -220,7 +236,7 @@ OSD_TIMESTAMP_FORMAT="%Y年%m月%d日 %H：%M：%S"
 DISPLAY_OSD_ENABLE="true"
 DISPLAY_OSD_FONT="Sans"
 DISPLAY_OSD_FONTSIZE="10"
-DISPLAY_OSD_TEXT="Rock 4D"
+DISPLAY_OSD_TEXT="RV1126B"
 DISPLAY_OSD_TIMESTAMP="true"
 DISPLAY_OSD_TIMESTAMP_FORMAT="%Y年%m月%d日 %H：%M：%S"
 

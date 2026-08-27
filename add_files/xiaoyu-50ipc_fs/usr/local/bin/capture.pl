@@ -2,7 +2,7 @@
 #
 # capture.pl - Rockchip RV1126B 摄像头采集与显示管线
 #
-# 版本:  v3.3.2
+# 版本:  v3.3.4
 # 作者:  flippy <flippy@sina.com>
 # 许可:  GPL v2 (GNU General Public License version 2)
 #
@@ -18,7 +18,7 @@
 #
 #
 use strict;
-use constant VERSION => 'v3.3.2';
+use constant VERSION => 'v3.3.4';
 use constant AUTHOR  => 'flippy <flippy@sina.com>';
 use constant LICENSE => 'GPL v2';
 use warnings;
@@ -223,7 +223,9 @@ sub load_config {
         ENCODER_GOP          => "60",
         ENCODER_EXTRA        => "",
         ENCODER_RC_MODE      => "CBR",
+        ENCODER_INTRAREFRESH => "off",
         RTSP_URL             => "rtsp://127.0.0.1:8554/live/0",
+        RTSP_TRANSPORT       => "tcp",
         FORCE_MODESETTING    => "false",
         BRAND_NAME           => "小宇智联",
         AUDIO_ENABLE         => 1,
@@ -859,7 +861,7 @@ sub auto_qp {
 }
 
 sub encoder_build_params {
-    my ($codec, $bitrate, $gop, $extra, $fps, $rcmode, $w, $h) = @_;
+    my ($codec, $bitrate, $gop, $extra, $fps, $rcmode, $w, $h, $intra_refresh) = @_;
 
     # 码率模式归一化 (CBR/VBR/AVBR), 默认 CBR (防马赛克最稳)
     $rcmode = uc($rcmode || "CBR");
@@ -873,7 +875,8 @@ sub encoder_build_params {
     # 放宽边界以保留动态头寸与静态压缩空间, 均值略高于目标)
     my ($min, $max, $buf);
     if ($rcmode eq "CBR") {
-        ($min, $max, $buf) = ($target, $target, $target * 2);
+        # 直播 CBR 收紧 bufsize 至 1x (原 2x), 降低 VBV 缓冲引起的码率突发与延迟
+        ($min, $max, $buf) = ($target, $target, $target);
     } elsif ($rcmode eq "VBR") {
         ($min, $max, $buf) = (int($target * 0.5), int($target * 1.5), int($target * 3));
     } else { # AVBR
@@ -910,6 +913,14 @@ sub encoder_build_params {
     print "📐 编码自动参数: rc=${rcmode} 目标=" . fmt_kbps($target)
         . " 边界=" . ($min > 0 ? fmt_kbps($min) . "-" : "~") . fmt_kbps($max)
         . " GOP=${gop_val} QP=${qpmn}/${qpi}/${qpmx} level=${lv}\n";
+
+    # ---- 直播去块刷新 (默认 off): 开启后移除周期 IDR, WebRTC/PotPlayer 等依赖
+    #      关键帧起播的播放器将无法播放, 故默认关闭; 抗卡顿由 CBR+收紧 bufsize+TCP 承担 ----
+    my $ir = lc($intra_refresh || "off");
+    if ($ir eq "on" || $ir eq "1" || $ir eq "true" || $ir eq "yes") {
+        $params .= " -intra_refresh 1 -refresh_mode row";
+        print "📐 直播去块刷新: intra_refresh=row (注意: 移除周期 IDR, 需播放器支持)\n";
+    }
 
     # ---- 高级自定义参数: 追加末尾, 后出现的同名参数覆盖自动值 ----
     $params .= " $extra" if $extra;
@@ -1150,6 +1161,8 @@ my $FF_PAT  = build_pattern("ffmpeg", $FF_DEV);
 my $GST_PAT = build_pattern("gst-launch-1.0", $GST_DEV);
 my ($AE, $ADEV, $ARATE, $ACH, $ABIT) = ($CFG{AUDIO_ENABLE}, $CFG{AUDIO_DEVICE}, $CFG{AUDIO_SAMPLERATE}, $CFG{AUDIO_CHANNELS}, $CFG{AUDIO_BITRATE});
 my ($EC, $EB, $EG, $EE, $ERM) = ($CFG{ENCODER_CODEC}, $CFG{ENCODER_BITRATE}, $CFG{ENCODER_GOP}, $CFG{ENCODER_EXTRA}, $CFG{ENCODER_RC_MODE});
+my $EIR = $CFG{ENCODER_INTRAREFRESH};
+my $RTS = ($CFG{RTSP_TRANSPORT} =~ /^(?:tcp|udp)$/i) ? lc($CFG{RTSP_TRANSPORT}) : "tcp";
 my ($RTSP, $FM)   = ($CFG{RTSP_URL}, $CFG{FORCE_MODESETTING});
 my ($OE, $OFONT, $OTEXT, $OTS, $OTSF, $OFS) = ($CFG{OSD_ENABLE}, $CFG{OSD_FONT}, $CFG{OSD_TEXT}, $CFG{OSD_TIMESTAMP}, $CFG{OSD_TIMESTAMP_FORMAT}, $CFG{OSD_FONTSIZE});
 my ($DOE, $DOTEXT, $DOTS, $DOTSF, $DOFS, $DOFONT) = ($CFG{DISPLAY_OSD_ENABLE}, $CFG{DISPLAY_OSD_TEXT}, $CFG{DISPLAY_OSD_TIMESTAMP}, $CFG{DISPLAY_OSD_TIMESTAMP_FORMAT}, $CFG{DISPLAY_OSD_FONTSIZE}, $CFG{DISPLAY_OSD_FONT});
@@ -1407,7 +1420,7 @@ if ($DE) {
 if ($SE) {
     print "2. 启动推流路径 ($FF_DEV)...\n";
 
-    $enc_params = encoder_build_params($EC, $EB, $EG, $EE, $SFPS, $ERM, $CW, $CH);
+    $enc_params = encoder_build_params($EC, $EB, $EG, $EE, $SFPS, $ERM, $CW, $CH, $EIR);
 
     # 音频参数 (开关可控): arecord 采集经管道输入 ffmpeg
     my ($audio_pipe, $audio_in, $audio_out) = audio_build_params($AE, $ADEV, $ARATE, $ACH, $ABIT);
@@ -1423,7 +1436,7 @@ if ($SE) {
             . " -vf \"${vf}\" "
             . "-vcodec $EC $enc_params"
             . $audio_out
-            . " -f rtsp \"$RTSP\"";
+            . " -rtsp_transport ${RTS} -f rtsp \"$RTSP\"";
 
     print "🎬 FFmpeg 命令: $ff_cmd\n";
 
