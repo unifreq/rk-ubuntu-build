@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>小宇智联 · 采集管理控制台</title>
 <script>try { if (localStorage.getItem("theme") === "light") document.documentElement.setAttribute("data-theme", "light"); } catch (e) {}</script>
+<script>
+/* 品牌名: 从 /api/brand (BRAND_NAME) 读取, 应用到标题/页头/登录页 */
+(async () => {
+  try {
+    const r = await fetch("/api/brand");
+    const d = await r.json();
+    const b = (d && d.brand || "").trim() || "小宇智联";
+    document.title = b + " · 采集管理控制台";
+    const setT = (id) => { const el = document.getElementById(id); if (el) el.textContent = b; };
+    setT("brandLogin"); setT("brandHeader");
+  } catch (e) {}
+})();
+</script>
 <script src="/chart.min.js"></script>
 <style>
   :root {
@@ -195,7 +208,7 @@
 <!-- 登录视图 -->
 <div id="loginView">
   <div class="login-box">
-    <h1>小宇智联 · 采集管理控制台</h1>
+    <h1><span id="brandLogin">小宇智联</span> · 采集管理控制台</h1>
     <p>请输入系统 root 密码登录</p>
     <input type="password" id="pw" placeholder="root 密码" autocomplete="current-password">
     <div class="login-err" id="loginErr"></div>
@@ -206,7 +219,7 @@
 <!-- 主视图 -->
 <div id="mainView">
   <header>
-    <h1>小宇智联 · 采集管理控制台 <span class="ver">v1.3.0</span></h1>
+    <h1><span id="brandHeader">小宇智联</span> · 采集管理控制台 <span class="ver">v1.3.2</span></h1>
     <div class="hdr-right">
       <button class="btn-ghost" id="themeBtn">浅色主题</button>
       <button class="btn-ghost" id="logoutBtn">退出登录</button>

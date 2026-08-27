@@ -25,7 +25,10 @@ use JSON::PP;
 use Getopt::Long;
 binmode STDERR, ":utf8";   # 让中文提示(如分辨率校正警告)正常输出, 避免 Wide character 警告
 
+use constant VERSION => 'v1.0.0';
+
 my %opt = (
+    version     => 0,
     detect_type => undef,
     source_fps  => undef,
     source_res  => undef,
@@ -58,7 +61,8 @@ GetOptions(
     'set-isp=s'     => \$opt{set_isp},
     'fps=i'         => \$opt{fps},
     'frames=i'      => \$opt{frames},
-) or die "用法: $0 [--detect-type DEV] [--source-fps DEV] [--source-res DEV] [--source-all DEV] [--drm] [--size WxH] [--actual-fps DEV [--frames N]] [--iqfile DEV] [--set-hdr DEV --hdr-value 0|1] [--set-isp DEV --size WxH --fps N] [--sensors]\n";
+    'version'       => \$opt{version},
+) or die "用法: $0 [--detect-type DEV] [--source-fps DEV] [--source-res DEV] [--source-all DEV] [--drm] [--size WxH] [--actual-fps DEV [--frames N]] [--iqfile DEV] [--set-hdr DEV --hdr-value 0|1] [--set-isp DEV --size WxH --fps N] [--sensors] [--version]\n";
 
 my $json = JSON::PP->new->utf8->pretty->canonical;
 
@@ -708,8 +712,11 @@ sub find_camera_dt_node {
             next unless -d $node;
             my $base = $node;
             $base =~ s{^.*/}{};
-            next unless $base =~ /^([A-Za-z0-9_]+?)(?:-\d+)?\@([0-9a-fA-F]+)$/;
+            # 节点名支持 model / model_N(模块索引, 如 imx415_0@37) / model-N
+            next unless $base =~ /^([A-Za-z0-9_]+?)(?:_\d+)?(?:-\d+)?\@([0-9a-fA-F]+)$/;
             my ($nm, $ad) = ($1, lc($2));
+            $nm =~ s/_\d+$//;
+            $nm =~ s/-\d+$//;
             next unless lc($nm) eq lc($model);
             next unless $ad eq $addr_hex;
             if (defined $idx && $idx ne "") {
@@ -1031,7 +1038,10 @@ sub list_sensors {
 # ==============================================================================
 # 主流程
 # ==============================================================================
-if ($opt{detect_type}) {
+if ($opt{version}) {
+    print "capture-enum.pl " . VERSION . "\n";
+    exit 0;
+} elsif ($opt{detect_type}) {
     print $json->encode(detect_source_type($opt{detect_type}));
 } elsif ($opt{source_fps}) {
     print $json->encode(enum_fps($opt{source_fps}, $opt{size}));

@@ -2,7 +2,7 @@
 #
 # capture.pl - Rockchip RV1126B 摄像头采集与显示管线
 #
-# 版本:  v3.3.0
+# 版本:  v3.3.2
 # 作者:  flippy <flippy@sina.com>
 # 许可:  GPL v2 (GNU General Public License version 2)
 #
@@ -18,7 +18,7 @@
 #
 #
 use strict;
-use constant VERSION => 'v3.3.0';
+use constant VERSION => 'v3.3.2';
 use constant AUTHOR  => 'flippy <flippy@sina.com>';
 use constant LICENSE => 'GPL v2';
 use warnings;
@@ -225,6 +225,7 @@ sub load_config {
         ENCODER_RC_MODE      => "CBR",
         RTSP_URL             => "rtsp://127.0.0.1:8554/live/0",
         FORCE_MODESETTING    => "false",
+        BRAND_NAME           => "小宇智联",
         AUDIO_ENABLE         => 1,
         AUDIO_DEVICE         => "default",
         AUDIO_SAMPLERATE     => 48000,
@@ -247,6 +248,7 @@ sub load_config {
     my %is_num  = map { $_ => 1 } qw(CAPTURE_FPS DISPLAY_CONNECTOR_ID AUDIO_SAMPLERATE AUDIO_CHANNELS DISPLAY_OSD_FONTSIZE OSD_FONTSIZE);
     my %is_bool = map { $_ => 1 } qw(DISPLAY_ENABLE STREAM_ENABLE RESTART_3A WAIT_3A AUDIO_ENABLE OSD_ENABLE OSD_TIMESTAMP DISPLAY_OSD_ENABLE DISPLAY_OSD_TIMESTAMP);
 
+    my %explicit;
     if (-f $file) {
         open my $fh, '<', $file or die "无法打开 $file: $!";
 
@@ -258,11 +260,13 @@ sub load_config {
                 my ($k, $v) = ($1, $2);
                 if (exists $cfg{$k}) {
                     $cfg{$k} = $is_bool{$k} ? ($v =~ /^(?:true|1|yes)$/i ? 1 : 0) : $is_num{$k} ? $v + 0 : $v;
+                    $explicit{$k} = 1;
                 }
             } elsif (/^\s*(\w+)\s*=\s*(\S+)\s*$/) {
                 my ($k, $v) = ($1, $2);
                 if (exists $cfg{$k}) {
                     $cfg{$k} = $is_bool{$k} ? ($v =~ /^(?:true|1|yes)$/i ? 1 : 0) : $is_num{$k} ? $v + 0 : $v;
+                    $explicit{$k} = 1;
                 }
             }
         }
@@ -272,6 +276,11 @@ sub load_config {
     } else {
         print "⚠️ 无配置文件，使用内置默认值\n";
     }
+
+    # 品牌名 (BRAND_NAME): 未显式设置 OSD 文字时, OSD 默认跟随品牌名
+    my $brand = (defined $cfg{BRAND_NAME} && $cfg{BRAND_NAME} ne "") ? $cfg{BRAND_NAME} : "小宇智联";
+    $cfg{OSD_TEXT} = $brand unless $explicit{OSD_TEXT};
+    $cfg{DISPLAY_OSD_TEXT} = $brand unless $explicit{DISPLAY_OSD_TEXT};
 
     my %cli_map = (
         display_enable        => 'DISPLAY_ENABLE',

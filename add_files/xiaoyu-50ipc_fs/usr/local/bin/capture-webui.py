@@ -36,7 +36,7 @@ from urllib.parse import urlparse, parse_qs
 # ---------------------------------------------------------------------------
 # 常量与配置
 # ---------------------------------------------------------------------------
-VERSION = "1.3.0"                    # 软件版本
+VERSION = "1.3.2"                    # 软件版本
 SERVICE = "capture.service"
 CONF_PATH = "/etc/capture.conf"
 CONF_DEFAULT = "/etc/capture.conf.default"   # 首次启动备份的默认配置
@@ -81,6 +81,9 @@ def _crypt_hash(password, salt):
 # 字段: key / type(bool|int|str) / group / label
 # ---------------------------------------------------------------------------
 CONFIG_SCHEMA = [
+    # 系统 / 品牌
+    {"key": "BRAND_NAME",   "type": "str", "group": "系统", "label": "品牌名称",
+     "help": "WebUI 标题/页头与 OSD 默认文字显示的品牌名 (留空则用默认 小宇智联)"},
     # 功能开关
     {"key": "DISPLAY_ENABLE",   "type": "bool", "group": "功能开关", "label": "本地显示",
      "help": "是否启用本地显示屏输出"},
@@ -443,6 +446,13 @@ def config_schema_payload():
             "dynamic": item.get("dynamic", ""),
         })
     return schema
+
+
+def brand_name():
+    """品牌名: 从配置读取 BRAND_NAME, 默认 小宇智联"""
+    cfg = load_config()
+    v = (cfg.get("BRAND_NAME") or "").strip()
+    return v if v else "小宇智联"
 
 
 # ---------------------------------------------------------------------------
@@ -1024,7 +1034,8 @@ def hdr_set(value, dev=None, iqfile=None, reboot=True):
 # HTTP Handler
 # ---------------------------------------------------------------------------
 class Handler(BaseHTTPRequestHandler):
-    server_version = "XiaoYu-CaptureConsole/%s" % VERSION
+    # HTTP Server 头必须是 latin-1/ASCII, 不能用中文品牌名 (否则 UnicodeEncodeError)
+    server_version = "CaptureConsole/%s" % VERSION
 
     # ---- 辅助 ----
     def _send(self, code, body, ctype="application/json; charset=utf-8"):
@@ -1088,6 +1099,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_file(CHART_JS_PATH, "application/javascript; charset=utf-8")
             else:
                 self._send_text(404, "chart.js not found", "text/plain")
+            return
+
+        # 品牌名 (公开接口, 供登录页/标题使用; 无需认证)
+        if path == "/api/brand":
+            self._send_json(200, {"brand": brand_name()})
             return
 
         # API (需认证)
@@ -1257,7 +1273,7 @@ class Handler(BaseHTTPRequestHandler):
 # 入口
 # ---------------------------------------------------------------------------
 def main():
-    ap = argparse.ArgumentParser(description="小宇智联采集管理控制台 (XiaoYu Capture Console)")
+    ap = argparse.ArgumentParser(description="%s采集管理控制台 (Capture Console)" % brand_name())
     ap.add_argument("--port", type=int, default=80, help="监听端口 (默认 80)")
     ap.add_argument("--bind", default="0.0.0.0", help="监听地址 (默认 0.0.0.0)")
     args = ap.parse_args()
