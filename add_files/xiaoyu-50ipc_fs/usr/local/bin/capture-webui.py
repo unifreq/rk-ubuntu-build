@@ -36,7 +36,7 @@ from urllib.parse import urlparse, parse_qs
 # ---------------------------------------------------------------------------
 # 常量与配置
 # ---------------------------------------------------------------------------
-VERSION = "1.2.0"                    # 软件版本
+VERSION = "1.3.0"                    # 软件版本
 SERVICE = "capture.service"
 CONF_PATH = "/etc/capture.conf"
 CONF_DEFAULT = "/etc/capture.conf.default"   # 首次启动备份的默认配置
@@ -110,7 +110,7 @@ CONFIG_SCHEMA = [
     {"key": "DISPLAY_CONNECTOR_NAME", "type": "select", "group": "本地显示", "label": "DRM 设备", "dynamic": "drm",
      "help": "DRM connector 名称 (空=自动)"},
     {"key": "DISPLAY_RES",      "type": "select", "group": "本地显示", "label": "分辨率", "dynamic": "drm_modes",
-     "help": "本地显示分辨率 (从 DRM 可用模式枚举, 宽x高)"},
+     "help": "本地显示分辨率 (从 DRM 可用模式枚举, 宽x高). 注意: 部分模式(如 2240x1400)虽在模式列表中, 但可能因板卡像素时钟/PHY/VOP 限制无法 modeset, 若本地显示反复退出请改用已验证分辨率(如 1920x1080)"},
     {"key": "DISPLAY_ROTATE",   "type": "select", "group": "本地显示", "label": "旋转角度",
      "options": ["0", "90", "180", "270"], "help": "显示画面旋转角度"},
     {"key": "FORCE_MODESETTING","type": "bool", "group": "本地显示", "label": "强制 modesetting",
@@ -789,6 +789,8 @@ def list_drm_connectors():
                 modes = open(mfile).read().splitlines()
             conn = entry.split("-", 1)[1] if "-" in entry else entry
             conns.append({"value": conn,
+                          "status": st,
+                          "all_modes": modes,
                           "label": "%s · %s · %s" % (conn, st, modes[0] if modes else "无模式")})
     except Exception:
         pass
@@ -802,16 +804,26 @@ def list_drm_connectors():
     drm_ids = [{"value": "-1", "label": "-1 (自动)"}]
     for i in sorted(ids):
         drm_ids.append({"value": str(i), "label": "connector id %d" % i})
-    # 去重收集所有 connector 的可用模式
+    # 完整枚举 connected connector 的所有可用模式 (供 DISPLAY_RES 下拉):
+    # 剔除隔行/逐行后缀(如 1920x1080i -> 1920x1080)并去重, 保证为 capture.pl 可解析的 WxH
+    def _area(m):
+        try:
+            w, h = m["value"].split("x")
+            return int(w) * int(h)
+        except Exception:
+            return 0
     modes = []
     seen = set()
     for c in conns:
-        parts = c["label"].split("·")
-        if len(parts) >= 3:
-            mode = parts[2].strip()
-            if mode and mode not in seen and "x" in mode:
-                seen.add(mode)
-                modes.append({"value": mode, "label": mode})
+        if c.get("status") != "connected":
+            continue
+        for mode in c.get("all_modes", []):
+            m2 = re.sub(r"[iIpP]\s*$", "", mode).strip()
+            if "x" not in m2 or m2 in seen:
+                continue
+            seen.add(m2)
+            modes.append({"value": m2, "label": m2})
+    modes.sort(key=_area, reverse=True)
     return {"connectors": conns, "drm_ids": drm_ids, "modes": modes}
 
 

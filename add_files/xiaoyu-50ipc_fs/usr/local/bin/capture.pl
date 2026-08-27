@@ -2,7 +2,7 @@
 #
 # capture.pl - Rockchip RV1126B 摄像头采集与显示管线
 #
-# 版本:  v3.2.0
+# 版本:  v3.3.0
 # 作者:  flippy <flippy@sina.com>
 # 许可:  GPL v2 (GNU General Public License version 2)
 #
@@ -18,7 +18,7 @@
 #
 #
 use strict;
-use constant VERSION => 'v3.2.0';
+use constant VERSION => 'v3.3.0';
 use constant AUTHOR  => 'flippy <flippy@sina.com>';
 use constant LICENSE => 'GPL v2';
 use warnings;
@@ -27,6 +27,9 @@ use Getopt::Long;
 use JSON::PP;
 
 use constant ENUM_PL => "/usr/local/bin/capture-enum.pl";
+
+# gst-launch stderr 日志路径 (诊断本地显示/kmssink modeset 失败, 与 ffmpeg 日志同目录轮转)
+my $GST_ERR_LOG = "/var/log/capture/gst_stderr.log";
 
 $Getopt::Long::ignorecase = 0;
 
@@ -481,13 +484,31 @@ sub cpu_boost_temporary {
     }
 }
 
+# 打印最近一次 gst stderr 日志 (诊断 kmssink modeset 失败等原因)
+sub show_gst_error {
+    my ($errf) = @_;
+    return unless defined $errf && $errf ne '' && -f $errf;
+    if (open my $fh, '<', $errf) {
+        my $c = do { local $/; <$fh> };
+        close $fh;
+        my @lines = grep { /\S/ } split /\n/, $c;
+        if (@lines) {
+            print "📄 本地显示 gst stderr (最近一次):\n";
+            print "  | $_\n" for @lines;
+        }
+    }
+}
+
 sub gst_display_start {
     my ($cmd, $max, $int) = @_;
     $max //= 5;
     $int //= 2;
 
     my $pid;
-    my $start = sub { $pid = proc_spawn($cmd); };
+    my $start = sub {
+        unlink $GST_ERR_LOG if defined $GST_ERR_LOG && -f $GST_ERR_LOG;
+        $pid = proc_spawn($cmd, $GST_ERR_LOG);
+    };
 
     $start->();
 
@@ -505,6 +526,7 @@ sub gst_display_start {
             $start->();
         } else {
             print "❌ 本地显示启动失败\n";
+            show_gst_error($GST_ERR_LOG);
         }
     }
 
@@ -575,6 +597,47 @@ sub wait_display_stable {
 
     print "⚠️ 本地显示未在 ${timeout} 秒内稳定\n";
     return 0;
+}
+
+# 尝试将 ISP selfpath (本地显示取流设备) 设为指定分辨率并回读实际支持尺寸
+# (驱动可能钳制, 如 2240x1400 -> 1920x1400), 供 gst 管线据此决定是否加 videoscale
+sub selfpath_try_fmt {
+    my ($dev, $w, $h) = @_;
+    return "" unless defined $dev && -e $dev && $w > 0 && $h > 0;
+    system("v4l2-ctl -d $dev --set-fmt-video=width=${w},height=${h},pixelformat=NV12 >/dev/null 2>&1");
+    my $out = `v4l2-ctl -d $dev --get-fmt-video 2>/dev/null`;
+    return "$1x$2" if $out =~ /Width\s*\/\s*Height\s*:\s*(\d+)\s*\/\s*(\d+)/;
+    return "";
+}
+
+# 计算 ISP selfpath 的最优取流尺寸:
+#   1) 解析 NV12 的 Stepwise 上限 (如 32x32-1920x2160 step 8/8)
+#   2) 若显示分辨率在上限内 -> 直接返回 (无需缩放)
+#   3) 否则按显示宽高比等比缩放到上限内, 并向下对齐到 16 的倍数 (RGA 对齐)
+# 返回 (w, h); 无法确定上限或无需缩放时返回 (0,0)
+sub selfpath_ideal {
+    my ($dev, $tw, $th) = @_;
+    return (0, 0) unless defined $dev && -e $dev && $tw > 0 && $th > 0;
+    my $out = `v4l2-ctl -d $dev --list-formats-ext 2>/dev/null`;
+    my ($mw, $mh, $step) = (0, 0, 8);
+    if ($out =~ /'NV12'[\s\S]*?Size:\s+Stepwise\s+\S+\s+-\s+(\d+)x(\d+)\s+with\s+step\s+(\d+)\/\d+/) {
+        ($mw, $mh, $step) = ($1 + 0, $2 + 0, $3 + 0);
+    } else {
+        return (0, 0);   # 无 Stepwise 信息, 交由 selfpath_try_fmt 直接探测
+    }
+    return ($tw, $th) if $tw <= $mw && $th <= $mh;   # 直接支持, 无需缩放
+
+    # 保持显示宽高比等比缩放到 selfpath 上限内 (取较小缩放比)
+    my $scale = (($mw / $tw) < ($mh / $th)) ? ($mw / $tw) : ($mh / $th);
+    my $w = int($tw * $scale);
+    my $h = int($th * $scale);
+    # RGA 对齐: 向下取整到对齐步长 (step>=16 用 step, 否则用 16), 最小 16
+    my $align = $step >= 16 ? $step : 16;
+    $w = int($w / $align) * $align;
+    $h = int($h / $align) * $align;
+    $w = $align if $w < $align;
+    $h = $align if $h < $align;
+    return ($w, $h);
 }
 
 sub detect_displays {
@@ -1225,6 +1288,7 @@ cpu_boost_temporary();
 
 # ---- 显示设备检测 ----
 my $KMSSINK_OPTS_EXTRA = "";
+my $DISP_MODES = "";   # 选中显示器的 DRM 可用模式列表 (用于报错提示)
 
 if ($DE) {
     my $displays = detect_displays();
@@ -1233,6 +1297,19 @@ if ($DE) {
     if (defined $selected) {
         my $sname = $selected->{name};
         print "🔌 显示设备: ${sname}\n";
+        if (@{ $selected->{modes} || [] }) {
+            $DISP_MODES = join(', ', @{ $selected->{modes} });
+        }
+        # 校验配置分辨率是否为本显示器 DRM 模式列表中的有效模式;
+        # 不在列表中(如笔误/自定义分辨率) -> 自动回退到最近支持模式
+        # (注意: 在列表内但 modeset 失败的模式, 如 2240x1400, 属板卡像素时钟/PHY/VOP 限制,
+        #  由 gst stderr 捕获 + 连续失败上限给出清晰报错, 不在此处回退)
+        if ($selected->{match} && !$selected->{match}->{exact}) {
+            my $fm = $selected->{match}->{mode};
+            print "⚠️ 配置分辨率 ${DW}x${DH} 不在 ${sname} 的 DRM 模式列表中, 自动回退到 ${fm}\n";
+            print "   ↳ 可用模式: ${DISP_MODES}\n" if $DISP_MODES ne '';
+            ($DW, $DH) = split /x/, $fm;
+        }
     } elsif ($DCI >= 0) {
         $KMSSINK_OPTS_EXTRA = " connector-id=${DCI}";
         print "🔌 强制显示设备: connector-id=${DCI}\n";
@@ -1277,8 +1354,29 @@ if ($DE) {
 
     # OSD 放在 videoflip 之前, 使文字随主画面一起旋转 (与画面方向一致)
     # 注意: $FLIP 前需保留空格, 避免与 OSD 滤镜串拼接成 "true! videoflip" 导致解析失败
+    # 取流尺寸: rkisp_selfpath 最大输出宽度仅 1920 (Stepwise 32x32-1920x2160), 2240x1400
+    # 无法直接输出. 先按显示宽高比计算 selfpath 上限内的最优尺寸 (兼顾 RGA 16 对齐),
+    # 再 S_FMT 回读确认; 与显示分辨率不一致时加入 videoscale 等比缩放到显示分辨率
+    # (如 2240x1400 -> selfpath 1920x1200, 同 16:10 宽高比, 缩放零变形)
+    my ($sid_w, $sid_h) = selfpath_ideal($GST_DEV, $VW, $VH);
+    my $sp_fmt;
+    if ($sid_w && $sid_h) {
+        $sp_fmt = selfpath_try_fmt($GST_DEV, $sid_w, $sid_h);
+    } else {
+        $sp_fmt = selfpath_try_fmt($GST_DEV, $VW, $VH);   # 无法解析上限时退回直接探测
+    }
+    my $src_caps = "video/x-raw,format=NV12";
+    $src_caps = "video/x-raw,width=$1,height=$2,format=NV12" if $sp_fmt =~ /^(\d+)x(\d+)$/;
+    my $scale = "";
+    if ($sp_fmt ne "${VW}x${VH}") {
+        print "🖥️  selfpath 输出 ${sp_fmt} 与显示 ${VW}x${VH} 不匹配(宽高比保持), 加入 videoscale 适配\n";
+        $scale = "! videoscale ! video/x-raw,width=$VW,height=$VH,format=NV12 ";
+    } else {
+        print "🖥️  selfpath 直接输出 ${VW}x${VH}\n";
+    }
     $gst_cmd = "gst-launch-1.0 v4l2src device=$GST_DEV io-mode=4 "
-             . "! video/x-raw,width=$VW,height=$VH,format=NV12 "
+             . "! $src_caps "
+             . $scale
              . $gst_rate
              . $gst_osd
              . " $FLIP"
@@ -1330,7 +1428,9 @@ if ($SE) {
             my $c = do { local $/; <$fh> };
             close $fh;
 
-            if ($c =~ /(?:Error|Failed|Cannot open|No such|Permission denied|Device or resource busy)/i) {
+            # 词边界 \b 避免误命中 FFmpeg 版本横幅编译参数中的 "-Werror=format-security"
+            # (Werror 内 Error 前无词边界), 其余无害提示(Inappropriate ioctl / mpp 信息)本就不匹配
+            if ($c =~ /\b(?:error|failed|cannot open|no such|permission denied|device or resource busy)\b/i) {
                 print "⚠️ FFmpeg stderr有错误:\n";
                 print "  | $_\n" for split "\n", $c;
             }
@@ -1360,6 +1460,9 @@ if ($SE) {
 # 主循环: 监控进程状态, 异常时自动重启
 # ============================================================================
 
+my $GST_FAIL_LIMIT = 3;   # 本地显示连续启动失败上限 (达到后停止自动重启, 给出清晰报错)
+my $gst_fail_streak = 0;
+
 while (1) {
     if (-f $LOCK) {
         open my $lfh, '<', $LOCK or next;
@@ -1376,10 +1479,23 @@ while (1) {
 
     if ($DE && !proc_alive($pid_gst)) {
         print "⚠️ 本地显示退出, 重启...\n";
-        ($pid_gst, undef) = gst_display_start($gst_cmd);
+        my ($npid, $gok) = gst_display_start($gst_cmd);
 
-        if ($pid_gst && $SE) {
-            wait_display_stable();
+        if ($gok) {
+            $gst_fail_streak = 0;
+            $pid_gst = $npid;
+            if ($SE) {
+                wait_display_stable();
+            }
+        } else {
+            $gst_fail_streak++;
+            if ($gst_fail_streak >= $GST_FAIL_LIMIT) {
+                print "❌ 本地显示连续 ${gst_fail_streak} 次启动失败, 已停止自动重启.\n";
+                print "   ➜ 可能原因: ① 显示 modeset 失败(像素时钟/PHY/VOP 限制); ② 取流源(selfpath)与显示分辨率均无法协商.\n";
+                print "   ➜ 可用模式: ${DISP_MODES}\n" if $DISP_MODES ne '';
+                print "   ➜ 建议: 检查 DISPLAY_RES 是否为有效分辨率, 并查看 /var/log/capture/gst_stderr.log 定位真实错误.\n";
+                $DE = 0;
+            }
         }
     }
 

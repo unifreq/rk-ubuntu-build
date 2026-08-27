@@ -907,9 +907,20 @@ sub set_isp_fmt {
     return { ok => 0, sensor => $model, error => "能力库无该 sensor: $model" } unless $caps;
 
     # 1. 精确匹配目标帧率的 sensor 原生模式 (无精确匹配则不切换, 交由实测校正)
+    #    同一帧率可能对应多个原生模式(如 imx415 30fps 对应 3864x2192 与 1944x1097),
+    #    必须按与请求分辨率面积最接近者确定, 避免 Perl 哈希 keys 无序迭代导致随机选择
     my $smode = "";
+    my $req_area = $w * $h;
+    my $best_diff = -1;
     for my $rk (keys %{ $caps->{fps} }) {
-        if (grep { $_ == $fps } @{ $caps->{fps}{$rk} }) { $smode = $rk; last; }
+        next unless grep { $_ == $fps } @{ $caps->{fps}{$rk} };
+        my ($rw, $rh) = split /x/, $rk;
+        next unless $rw && $rh;
+        my $diff = abs($rw * $rh - $req_area);
+        if ($best_diff < 0 || $diff < $best_diff) {
+            $best_diff = $diff;
+            $smode = $rk;
+        }
     }
 
     # 1.5 分辨率上限: ISP 输出不能超过 sensor 原生最大 (只能下缩放), 超限则校正 (如 4K 请求)
