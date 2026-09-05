@@ -1,0 +1,422 @@
+# ==============================================================================
+# Rockchip RV1126B 摄像头采集与显示配置文件
+# ==============================================================================
+# 本文件中的所有选项均可在命令行中覆盖:
+#   capture.pl --display-res=1920x1080 --encoder-bitrate=12M
+#
+# 未设置的选项使用 capture.pl 内置默认值。
+# 取消注释即可启用对应配置组合。
+
+# ==============================================================================
+# --- 0. 系统 / 品牌 ---
+# ==============================================================================
+# BRAND_NAME: 品牌/产品名称, 用于 WebUI 标题/页头与 OSD 默认文字 (留空则用默认 小宇智联)
+BRAND_NAME="小宇智联"
+
+# ==============================================================================
+# --- 1. 功能开关 ---
+# ==============================================================================
+
+DISPLAY_ENABLE="true"
+STREAM_ENABLE="true"
+
+# ==============================================================================
+# --- 2. 3A 算法服务管理 ---
+# ==============================================================================
+
+# 启动前重启 3A 算法服务。设为 true 会在启动管线前执行:
+#   systemctl restart rkaiq_3A.service
+# 对于首次刷机启动等高负载场景，重启 3A 可确保算法线程正确创建
+RESTART_3A="false"
+
+# 等待 3A 算法就绪后再启动管线
+# 通过检测 TCP 端口 4894 (3A server 监听端口) 判断就绪状态
+# 最长等待 30 秒，超时将强制继续
+WAIT_3A="true"
+
+# ==============================================================================
+# --- 3. 摄像头设备节点 ---
+# ==============================================================================
+
+# FFMPEG CAM: 用于rtsp推流，通常采用rkisp_mainpath设备
+# 可使用 "media-ctl -d /dev/mediaX -e "rkisp_mainpath" 查到
+FFMPEG_CAM_DEV="/dev/video24"
+
+# GST CAM: 用于本地显示，通常采用rkisp_selfpath设备，或rkvpss_scale设备
+# 可使用 "media-ctl -d /dev/mediaX -e "rkisp_selfpath" 查到
+GST_CAM_DEV="/dev/video25"
+
+# ==============================================================================
+# --- 4. 本地显示屏参数 ---
+# ==============================================================================
+# connector-id 的优先级比 connector-name 高
+# 强制指定显示设备(注释后为自动检测):
+DISPLAY_CONNECTOR_ID="-1"
+DISPLAY_CONNECTOR_NAME="DSI-1"
+
+DISPLAY_RES="480x800"
+DISPLAY_ROTATE="270"
+# force modesetting: 对于DSI显示设备，一般选false, 对于hdmi显示设备，一般选true
+FORCE_MODESETTING="false"
+
+# ==============================================================================
+# --- 5. 视频采集参数 ---
+# ==============================================================================
+# 这些参数会被摄像头探测结果覆盖:
+# 如果 ISP 最大分辨率小于 CAPTURE_RES, 会自动降级.
+# 当前默认: 2K (2560x1440) @ 30fps
+# CAPTURE_RES: 采集分辨率 (宽x高), 推流与本地显示统一用此格式
+# CAPTURE_FPS: 采集帧率 (ISP 设备由 3A 控制, 只读; 非 ISP 可枚举)
+# STREAM_FPS:  输出帧率 (由滤镜 -vf fps 前置统一, 不再使用输出端 -r;
+#              默认 auto=跟随采集帧率; 升档=采集帧率整数倍(最高120), 降档=折半链 ÷2/÷4/÷8)
+
+CAPTURE_RES="1920x1080"
+CAPTURE_FPS="60"
+STREAM_FPS="auto"
+RTSP_URL="rtsp://127.0.0.1:8554/live/0"
+
+# ==============================================================================
+# --- 6. 视频编码参数 ---
+# ==============================================================================
+# 支持的编码器: h264_rkmpp (默认) / hevc_rkmpp
+# 编码参数采用"自动计算 + 可覆盖"策略:
+#   - 只需设置 ENCODER_BITRATE(目标码率) 与 ENCODER_RC_MODE, 其余参数自动推导
+#   - 自动推导的 level / QP / GOP / 码率边界均为当前分辨率与码率下的最合理组合
+#   - 如需精细调参, 用 ENCODER_EXTRA 追加参数, 会覆盖自动生成的同名参数
+#
+# ENCODER_RC_MODE: 码率控制模式 (CBR / VBR / AVBR)
+#   CBR  = 恒定码率, 峰值可控、传输稳定, 防马赛克最有效 (默认推荐, 适合直播/带宽受限)
+#   VBR  = 可变码率, 同等平均码率下画质略高, 但码率波动大, 适合本地存储/高带宽
+#   AVBR = 自适应 VBR, 码率智能浮动, 兼具画质与带宽的平衡
+#
+# 码率边界自动计算 (T = ENCODER_BITRATE):
+#   模式   b:v    minrate    maxrate    bufsize
+#   CBR    T      T          T          T          (严格恒定, 均值=目标)
+#   VBR    T      50%*T      150%*T     3*T        (真VBR动态范围: 静态可降码率/动态有头寸, 均值略高于目标)
+#   AVBR   T      --         150%*T     2*maxrate  (质量自适应, 实际均值约目标 60-70%)
+#   AVBR   T      --         150%*T     2*maxrate
+#
+# QP 自动推导 (防马赛克关键, 按目标码率档位):
+#   目标码率       qp_init / qp_min / qp_max
+#   >=12M          22 / 10 / 30   (高质量档)
+#   6M ~ 12M       24 / 10 / 33   (中高质量档)
+#   3M ~ 6M        26 / 12 / 36   (标准档)
+#   <3M            28 / 14 / 40   (低码率档)
+#   qp_max 限制量化参数上限, 画面复杂时也不会无限劣化产生马赛克
+#
+# level 自动推导 (按分辨率):
+#   分辨率         H.264   HEVC
+#   <=1280x720     4.0     4.1
+#   <=1920x1080    4.2     4.1
+#   <=2560x1440    5.0     5.0
+#   >2560x1440     5.1     5.1
+#   (2560x1440 需要 H.264 level 5.0, level 4.2 不足会降级)
+#
+# GOP 自动: ENCODER_GOP="auto" 时 = 帧率*2 (2 秒关键帧, 直播推荐)
+#
+# 注意: -coder cabac / -8x8dct 是 ffmpeg 通用选项(AVCodecContext), ffmpeg 会接受(不报错),
+#       但 h264_rkmpp 硬件编码器忽略它们(不生效). 已实测验证: 带与不带这两个参数,
+#       mpp 编码日志与输出文件字节数完全一致, 即完全不生效.
+#       说明: h264_rkmpp 在 -profile high 下硬件本就固定启用 CABAC + 8x8DCT,
+#       无需也无法通过 -coder/-8x8dct 控制; 请勿手动添加以免误导.
+#       (若确实需要 libx264 的 coder/8x8dct 精确控制, 请改用 -c:v libx264 软编)
+#
+# ENCODER_EXTRA 高级自定义 (追加在自动参数末尾, 同名参数覆盖自动值):
+#   常用可覆盖项:
+#     -rc_mode VBR                       (覆盖码率模式)
+#     -qp_init 20 -qp_max 32 -qp_min 8   (覆盖 QP 范围)
+#     -g 120                             (覆盖关键帧间隔)
+#     -intra_refresh 1                   (去块刷新, 低延迟场景)
+#     -level 5.1                         (覆盖 level)
+
+# ENCODER_CODEC: 编码器类型 (h264_rkmpp / hevc_rkmpp)
+ENCODER_CODEC="h264_rkmpp"
+
+# ENCODER_BITRATE: 目标码率, 格式为数字+单位(K/M), 如 8M / 12000K / 16000000 均支持
+#   2K (2560x1440) @30fps H.264 CBR 推荐 16M (高清高质量, 防马赛克最佳)
+#   仅设置此值 + ENCODER_RC_MODE 即可, 其余参数自动推导
+#   HEVC 同等画质码率约为 H.264 的 60%~70%
+ENCODER_BITRATE="12M"
+
+# ENCODER_GOP: 关键帧间隔 (auto=帧率*2; 或固定数值, 如 60 / 120)
+ENCODER_GOP="auto"
+
+# ENCODER_RC_MODE: 码率控制模式 (CBR / VBR / AVBR)
+ENCODER_RC_MODE="CBR"
+
+# ENCODER_EXTRA: 高级自定义参数 (追加末尾, 覆盖自动值), 留空表示全部自动
+ENCODER_EXTRA=""
+
+# ENCODER_INTRAREFRESH: 直播去块刷新 (on/off), 默认 off
+#   开启后用逐行分布刷新取代周期性 IDR 关键帧, 可消除关键帧突发导致的卡顿;
+#   但码流不再有整帧 IDR, WebRTC/PotPlayer 等依赖关键帧启动的播放器将无法起播,
+#   故默认关闭。如播放器支持且需消除周期性卡顿, 可手动改为 on。
+ENCODER_INTRAREFRESH="off"
+
+# RTSP_TRANSPORT: RTSP 推流传输层 (tcp/udp), 默认 tcp
+#   tcp 更稳 (无 UDP 丢包/乱序), 局域网推荐
+RTSP_TRANSPORT="tcp"
+
+# ==============================================================================
+# --- 7. 音频参数 (麦克风推流) ---
+# ==============================================================================
+# 麦克风已可用 (见 /usr/local/bin/audio-init.sh 与 test_mic.sh)
+# 采集方案: ffmpeg 的 alsa 输入在 RV1126 ACodec 上不可用 (Cannot allocate memory),
+# 因此脚本采用 arecord 采集并经管道以原始 PCM 输入 ffmpeg, AAC 编码后随视频推流。
+# 关闭方式: 命令行 --no-audio-enable 或 AUDIO_ENABLE="false"
+#
+# AUDIO_ENABLE: 是否在推流中包含麦克风音频 (true/false)
+# AUDIO_DEVICE: ALSA 采集设备 (默认 default, 与 test_mic.sh 一致)
+# AUDIO_SAMPLERATE: 采样率 (默认 48000; 如遇驱动限制可改为 16000)
+# AUDIO_CHANNELS: 声道数 (默认 1, 单声道麦克风)
+# AUDIO_BITRATE: AAC 编码码率 (默认 128k)
+
+AUDIO_ENABLE="true"
+AUDIO_DEVICE="default"
+AUDIO_SAMPLERATE="48000"
+AUDIO_CHANNELS="1"
+AUDIO_BITRATE="128k"
+
+# ==============================================================================
+# --- 8. 推流 OSD 文字叠加 (时间戳 + 固定文字) ---
+# ==============================================================================
+# OSD 同时作用于两条链路 (共用本组配置):
+#   推流 (ffmpeg drawtext)              : 左上角固定文字 + 右上角时间戳
+#   本地显示 (gst clockoverlay+textoverlay): 同样叠加, 需中文字体:
+#     apt-get install fonts-wqy-microhei
+# 文字大小按各自分辨率自动计算:
+#   推流: 高度/36 (最小20px; 2K->40px, 1080->30px)
+#   本地显示: 高度/36 (最小14px; 800x480 -> 14px)
+#
+# OSD_ENABLE: 是否叠加文字 (true/false)
+#   命令行可用 --no-osd-enable 关闭
+# OSD_TEXT: 左上角固定文字 (默认 小宇智联, 可改为任意文字)
+# OSD_FONT: 中文字体文件路径 (推流 drawtext 用)
+# OSD_TIMESTAMP: 右上角时间戳开关 (true/false)
+# OSD_TIMESTAMP_FORMAT: 时间戳格式 (strftime 语法, 支持中文)
+# OSD_FONTSIZE: 推流字号 (0=自动按分辨率计算, 默认0; 或固定值如 40)
+#   默认 %Y年%m月%d日 %H：%M：%S -> 2026年08月16日 15：32：02
+#   如需英文: %Y-%m-%d %H：%M：%S
+# 注意: 推流 drawtext 的 %{localtime\:...} 会误把 ASCII 冒号(:)当作参数分隔符,
+#       因此时间格式中请使用全角冒号(：)分隔时分秒; 若使用 ASCII 冒号会
+#       触发 "%{localtime} requires at most 1 arguments" 警告
+#       (本地显示 clockoverlay 直接使用 strftime 格式, 无此限制)
+# drawtext 为 CPU 滤镜, 2K 分辨率下会增加 CPU 负载 (如需省资源可关 OSD)
+
+OSD_ENABLE="true"
+OSD_FONT="/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"
+OSD_FONTSIZE="0"
+OSD_TEXT="小宇智联"
+OSD_TIMESTAMP="true"
+OSD_TIMESTAMP_FORMAT="%Y年%m月%d日 %H：%M：%S"
+
+# ==============================================================================
+# --- 9. 本地显示 OSD (独立配置, 与推流 OSD 互不相干) ---
+# ==============================================================================
+# 本地显示路径 (gst clockoverlay + textoverlay) 使用独立的 OSD 配置,
+# 不会影响推流 OSD; 字号/位置按本地显示分辨率与旋转自动计算.
+#
+# DISPLAY_OSD_ENABLE: 是否在本地显示叠加文字 (true/false)
+# DISPLAY_OSD_TEXT: 本地显示固定文字 (默认 小宇智联)
+# DISPLAY_OSD_TIMESTAMP: 本地显示时间戳开关 (true/false)
+# DISPLAY_OSD_TIMESTAMP_FORMAT: 时间戳格式 (strftime, 支持中文)
+# DISPLAY_OSD_FONTSIZE: 字号 (0=自动按分辨率计算, 默认0; 或固定值如 10)
+# DISPLAY_OSD_FONT: 本地显示字体 (pango 字体名, 默认 Sans; 可填 WenQuanYi Micro Hei / Droid Sans Fallback)
+# 说明: 本地显示主画面旋转 270 度, OSD 叠加在旋转前画面并随主画面一起旋转;
+#       位置自动调整为旋转后位于屏幕上方 (固定文字左上、时间戳右上).
+
+DISPLAY_OSD_ENABLE="true"
+DISPLAY_OSD_FONT="Sans"
+DISPLAY_OSD_FONTSIZE="0"
+DISPLAY_OSD_TEXT="小宇智联"
+DISPLAY_OSD_TIMESTAMP="true"
+DISPLAY_OSD_TIMESTAMP_FORMAT="%Y年%m月%d日 %H：%M：%S"
+
+# -----------------------------------------------------------------------
+# 常用编码参数配置组合 (按需取消注释)
+# -----------------------------------------------------------------------
+# 使用方式: 将下方某组配置复制到文件上方的"视频编码参数"节,
+# 或直接命令行覆盖, 例如:
+#   capture.pl --encoder-bitrate=6M --encoder-rc-mode=VBR --encoder-gop=auto
+# 只需设置 CODEC / BITRATE / GOP / RC_MODE, 其余参数 (level/QP/码率边界) 自动推导。
+
+# ========== SD 标清 (640x480 / 1280x720) ==========
+# 适合低带宽、低成本流媒体场景
+
+# 640x480 @25fps H.264 CBR (低成本流)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="1M"
+#ENCODER_GOP="50"
+#ENCODER_RC_MODE="CBR"
+# 自动推导: min=1M max=1M buf=1M QP=28/14/40 level=4.0
+
+# 1280x720 @30fps H.264 CBR (标清直播)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="4M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="CBR"
+# 自动推导: min=4M max=4M buf=4M QP=26/12/36 level=4.0
+
+# 1280x720 @30fps H.264 VBR (画质优先)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="4M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="VBR"
+# 自动推导: b=4M min=2M max=6M buf=12M QP=26/12/36 level=4.0
+
+# ========== HD 高清 (1920x1080) ==========
+# 适用: 直播、监控、视频会议
+
+# 1920x1080 @30fps H.264 CBR (推荐, 平衡画质与带宽)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="6M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="CBR"
+# 自动推导: min=6M max=6M buf=6M QP=24/10/33 level=4.2
+
+# 1920x1080 @30fps H.264 VBR (同等平均码率画质更高)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="6M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="VBR"
+# 自动推导: b=6M min=3M max=9M buf=18M QP=24/10/33 level=4.2
+
+# 1920x1080 @30fps HEVC CBR (同等画质带宽减半)
+#ENCODER_CODEC="hevc_rkmpp"
+#ENCODER_BITRATE="4M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="CBR"
+# 自动推导: min=4M max=4M buf=4M QP=26/12/36 level=4.1
+
+# 1920x1080 @60fps H.264 CBR (高帧率运动场景)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="12M"
+#ENCODER_GOP="120"
+#ENCODER_RC_MODE="CBR"
+
+# 1920x1080 @60fps HEVC CBR (高帧率 + 低带宽)
+#ENCODER_CODEC="hevc_rkmpp"
+#ENCODER_BITRATE="8M"
+#ENCODER_GOP="120"
+#ENCODER_RC_MODE="CBR"
+
+# ========== 2K (2560x1440) ==========
+# 适用: 高清监控、直播推流
+
+# 2560x1440 @30fps H.264 CBR (当前默认, 16M 高清高质量防马赛克)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="16M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="CBR"
+# 自动推导: min=16M max=16M buf=16M QP=22/10/30 level=5.0
+
+# 2560x1440 @30fps H.264 VBR (高带宽画质极致)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="16M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="VBR"
+# 自动推导: b=16M min=8M max=24M buf=48M QP=22/10/30 level=5.0
+
+# 2560x1440 @30fps H.264 AVBR (码率智能浮动, 平衡画质带宽)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="16M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="AVBR"
+# 自动推导: b=16M max=24M buf=48M QP=22/10/30 level=5.0
+
+# 2560x1440 @30fps HEVC CBR
+#ENCODER_CODEC="hevc_rkmpp"
+#ENCODER_BITRATE="9M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="CBR"
+
+# 2560x1440 @60fps H.264 CBR (高帧率运动场景)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="18M"
+#ENCODER_GOP="120"
+#ENCODER_RC_MODE="CBR"
+
+# 2560x1440 @60fps HEVC CBR
+#ENCODER_CODEC="hevc_rkmpp"
+#ENCODER_BITRATE="11M"
+#ENCODER_GOP="120"
+#ENCODER_RC_MODE="CBR"
+
+# ========== 4K (3840x2160) ==========
+# 适用: 超高清监控、视频制作 (需确认摄像头支持4K)
+
+# 3840x2160 @30fps H.264 CBR
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="24M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="CBR"
+# 自动推导: level=5.1
+
+# 3840x2160 @30fps HEVC CBR
+#ENCODER_CODEC="hevc_rkmpp"
+#ENCODER_BITRATE="16M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="CBR"
+
+# ========== 竖屏摄像头 (480x800 / 360x480) ==========
+# 适用: 门铃、门禁、婴儿监控
+
+# 480x800 @30fps H.264 CBR (DSI-1 竖屏摄像头)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="2M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="CBR"
+# 自动推导: QP=26/12/36 level=4.0
+
+# 360x480 @30fps H.264 CBR
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="1M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="CBR"
+
+# ========== 高级自定义示例 (ENCODER_EXTRA 覆盖自动值) ==========
+# ENCODER_EXTRA 追加在自动参数末尾, 同名参数后出现者覆盖先出现者,
+# 因此可单独覆盖 QP / rc_mode / level / GOP 等任意自动推导值。
+
+# 2K30 H.264 VBR + 手动收紧 QP (更高画质, 覆盖自动 QP)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="16M"
+#ENCODER_GOP="auto"
+#ENCODER_RC_MODE="VBR"
+#ENCODER_EXTRA="-qp_init 20 -qp_min 8 -qp_max 30"
+# 覆盖后 QP 为 8/20/30, 码率边界仍自动为 min=8M max=24M
+
+# 2K30 H.264 CBR + 低延迟 (去块刷新 + 收紧 QP)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="16M"
+#ENCODER_GOP="auto"
+#ENCODER_RC_MODE="CBR"
+#ENCODER_EXTRA="-intra_refresh 1 -qp_max 28"
+
+# 1080p30 H.264 强制 VBR (用 ENCODER_EXTRA 覆盖默认 CBR)
+#ENCODER_CODEC="h264_rkmpp"
+#ENCODER_BITRATE="8M"
+#ENCODER_GOP="120"
+#ENCODER_RC_MODE="CBR"
+#ENCODER_EXTRA="-rc_mode VBR"
+
+# 4K30 H.265 AVBR + 自定义 level
+#ENCODER_CODEC="hevc_rkmpp"
+#ENCODER_BITRATE="16M"
+#ENCODER_GOP="60"
+#ENCODER_RC_MODE="AVBR"
+#ENCODER_EXTRA="-level 5.1 -tier main"
+
+# ========== 编码速查表 ==========
+# 分辨率      帧率   H.264   HEVC    GOP   典型场景 (均为 CBR 推荐码率)
+# ----------- ------ ------- ------- -----  ---------------------------
+# 640x480     25fps  1M      0.6M    50    低成本流
+# 1280x720    30fps  4M      2.5M    60    标清直播
+# 1920x1080   30fps  6M      4M      60    高清直播
+# 1920x1080   60fps 12M      8M     120    高帧率高清
+# 2560x1440   30fps 16M      9M      60    2K 监控 (默认, CBR 高清高质量)
+# 2560x1440   60fps 18M     11M     120    2K 高帧率
+# 3840x2160   30fps 24M     16M      60    4K 超高清
+# 480x800     30fps  2M      1.2M    60    竖屏 DSI
+# 说明: 默认情况下采用CBR(固定码率)，若RC_MODE 改为 VBR/AVBR, 码率边界会自动调整
+# -----------------------------------------------------------------------

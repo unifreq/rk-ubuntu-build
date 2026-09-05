@@ -52,19 +52,11 @@ GST_CAM_DEV="/dev/video25"
 # connector-id 的优先级比 connector-name 高
 # 强制指定显示设备(注释后为自动检测):
 DISPLAY_CONNECTOR_ID="-1"
-DISPLAY_CONNECTOR_NAME=""
+DISPLAY_CONNECTOR_NAME="DSI-1"
 
-# DISPLAY_RES: 本地显示分辨率, 应为本显示器(DRM connector)模式列表中的有效模式.
-# 可用模式可用 modetest -M rockchip -c 或查看 /sys/class/drm/card*-*/modes 获取.
-# 说明: 本地显示取流自 ISP selfpath(/dev/video12), 该路径最大输出宽度为 1920.
-#       capture.pl 启动前会解析 selfpath 上限, 并按显示宽高比计算最优取流尺寸
-#       (如 2240x1400 -> selfpath 1920x1200, 同 16:10 宽高比, 兼顾 RGA 16 对齐),
-#       与显示分辨率不一致时自动加入 videoscale 等比缩放到显示分辨率 (零变形).
-# 注意: FORCE_MODESETTING 必须为 true, kmssink 才会主动把 CRTC 设为 DISPLAY_RES 模式;
-#       false 时沿用当前模式会因与取流尺寸不匹配而报错.
-# 若仍反复退出, 请查看 /var/log/capture/gst_stderr.log 定位真实原因.
 DISPLAY_RES="480x800"
 DISPLAY_ROTATE="270"
+# force modesetting: 对于DSI显示设备，一般选false, 对于hdmi显示设备，一般选true
 FORCE_MODESETTING="false"
 
 # ==============================================================================
@@ -77,8 +69,7 @@ FORCE_MODESETTING="false"
 # CAPTURE_FPS: 采集帧率 (ISP 设备由 3A 控制, 只读; 非 ISP 可枚举)
 # STREAM_FPS:  输出帧率 (由滤镜 -vf fps 前置统一, 不再使用输出端 -r;
 #              默认 auto=跟随采集帧率; 升档=采集帧率整数倍(最高120), 降档=折半链 ÷2/÷4/÷8)
-
-CAPTURE_RES="2560x1440"
+CAPTURE_RES="3200x1800"
 CAPTURE_FPS="30"
 STREAM_FPS="auto"
 RTSP_URL="rtsp://127.0.0.1:8554/live/0"
@@ -138,13 +129,13 @@ RTSP_URL="rtsp://127.0.0.1:8554/live/0"
 #     -level 5.1                         (覆盖 level)
 
 # ENCODER_CODEC: 编码器类型 (h264_rkmpp / hevc_rkmpp)
-ENCODER_CODEC="h264_rkmpp"
+ENCODER_CODEC="hevc_rkmpp"
 
 # ENCODER_BITRATE: 目标码率, 格式为数字+单位(K/M), 如 8M / 12000K / 16000000 均支持
 #   2K (2560x1440) @30fps H.264 CBR 推荐 16M (高清高质量, 防马赛克最佳)
 #   仅设置此值 + ENCODER_RC_MODE 即可, 其余参数自动推导
 #   HEVC 同等画质码率约为 H.264 的 60%~70%
-ENCODER_BITRATE="16M"
+ENCODER_BITRATE="18M"
 
 # ENCODER_GOP: 关键帧间隔 (auto=帧率*2; 或固定数值, 如 60 / 120)
 ENCODER_GOP="auto"
@@ -179,7 +170,7 @@ RTSP_TRANSPORT="tcp"
 # AUDIO_CHANNELS: 声道数 (默认 1, 单声道麦克风)
 # AUDIO_BITRATE: AAC 编码码率 (默认 128k)
 
-AUDIO_ENABLE="false"
+AUDIO_ENABLE="true"
 AUDIO_DEVICE="default"
 AUDIO_SAMPLERATE="48000"
 AUDIO_CHANNELS="1"
@@ -214,7 +205,7 @@ AUDIO_BITRATE="128k"
 OSD_ENABLE="true"
 OSD_FONT="/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"
 OSD_FONTSIZE="0"
-OSD_TEXT="RV1126B"
+OSD_TEXT="小宇智联"
 OSD_TIMESTAMP="true"
 OSD_TIMESTAMP_FORMAT="%Y年%m月%d日 %H：%M：%S"
 
@@ -235,8 +226,8 @@ OSD_TIMESTAMP_FORMAT="%Y年%m月%d日 %H：%M：%S"
 
 DISPLAY_OSD_ENABLE="true"
 DISPLAY_OSD_FONT="Sans"
-DISPLAY_OSD_FONTSIZE="10"
-DISPLAY_OSD_TEXT="RV1126B"
+DISPLAY_OSD_FONTSIZE="0"
+DISPLAY_OSD_TEXT="小宇智联"
 DISPLAY_OSD_TIMESTAMP="true"
 DISPLAY_OSD_TIMESTAMP_FORMAT="%Y年%m月%d日 %H：%M：%S"
 

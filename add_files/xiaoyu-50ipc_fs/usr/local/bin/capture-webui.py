@@ -902,17 +902,36 @@ def list_fps_formats(cfg=None, size=None, dev=None):
 
 
 def list_capture_res(dev=None):
-    """按当前采集设备枚举可用分辨率 (capture-enum.pl --source-res)"""
+    """按当前采集设备枚举可用分辨率; 原生项排前, 标准候选档兜底 (ISP 可缩放输出).
+
+    注意: 不能用"枚举为空才用兜底"——capture-enum --source-res 通常能返回非空
+    (如仅 3840x2160/1920x1080), 那样 2560x1440/3200x2000 等 ISP 可缩放输出的
+    标准档就永远进不了下拉。改为: 原生+标准候选合并去重, 原生排前。
+    """
     cfg = load_config()
     dev = dev or cfg.get("FFMPEG_CAM_DEV", "/dev/video24")
     d = _enum_json("--source-res", dev)
+    native = [r for r in ((d or {}).get("res") or []) if r]
+    base = ["3840x2160", "3200x2000", "3200x1800", "2560x1600", "2560x1440",
+            "1920x1200", "1920x1080", "1600x1000", "1600x900",
+            "1280x800", "1280x720", "1024x768", "960x528", "640x480",
+            "480x800", "800x480"]
+    seen = {}
     vals = []
-    if d and d.get("res"):
-        vals = [{"value": r, "label": r} for r in d["res"] if r]
-    if not vals:
-        vals = [{"value": v, "label": v} for v in
-                ["3840x2160", "2560x1440", "1920x1080", "1280x720",
-                 "960x540", "640x480", "480x800", "800x480"]]
+    for r in (native + base):
+        if r and r not in seen:
+            seen[r] = 1
+            vals.append({"value": r, "label": r})
+
+    # 排序规则: 大的分辨率(总像素面积)优先; 面积相近(相同)时宽高比更大(更宽)优先,
+    # 再按宽度大优先 (竖屏如 480x800 因宽高比<1 自然排后)
+    def _geom(v):
+        a, b = (v["value"].split("x", 1) + ["0"])[:2]
+        try:
+            return (int(a) * int(b), (int(a) / int(b)) if int(b) else 0.0, int(a))
+        except ValueError:
+            return (0, 0.0, 0)
+    vals.sort(key=_geom, reverse=True)
     return vals
 
 

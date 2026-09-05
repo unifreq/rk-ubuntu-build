@@ -159,9 +159,10 @@ my %SENSOR_CAPS = (
         note => "3200x1800: 60fps(4lane), 30fps",
     },
     "sc850sl" => {
-        res => ["3840x2160"],
-        fps => { "3840x2160" => [40, 30] },
-        note => "4K: 40fps, 30fps",
+        res => ["3840x2160", "1920x1080"],
+        fps => { "3840x2160" => [40, 30], "1920x1080" => [60] },
+        hdr => { "3840x2160@30" => "HDR_X2" },
+        note => "4lane: 3840x2160@40/30(linear)/30(HDR), 1920x1080@60",
     },
     "gc02m2" => {
         res => ["1600x1200"],
@@ -817,6 +818,11 @@ sub iqfile_for_device {
 sub actual_fps {
     my ($dev, $size, $frames) = @_;
     my $count = ($frames && $frames > 0) ? $frames : 60;
+    my $warmup = $count;
+
+    # 预热流: 丢弃开流/切模式可能出现的瞬态, 让 sensor 进入稳态后再统计
+    system("v4l2-ctl -d $dev --stream-mmap --stream-count=$warmup --stream-to=/dev/null >/dev/null 2>&1");
+    sleep 1;
 
     my $out = `v4l2-ctl -d $dev --stream-mmap --stream-count=$count --stream-to=/dev/null 2>&1`;
     my @fpsm = ($out =~ /([\d.]+)\s*fps/g);
@@ -847,10 +853,12 @@ sub actual_fps {
 }
 
 # 就近归纳到标准帧率 (29.4->30, 25.x->25; 避免输出 29/24 这类非标值)
+# 注意: 必须包含 40 —— 缺 40 时精确的 40.0fps 会在 50/30 之间等距且循环先取 50,
+#       把真实的 4K@40 误报成 50fps (实测 sc850sl 稳定 40.00 曾被报成 50).
 sub nearest_nominal {
     my ($f) = @_;
     $f += 0;
-    my @nom = (120, 90, 60, 50, 30, 25, 20, 15, 10, 5);
+    my @nom = (120, 112, 90, 80, 75, 70, 60, 55, 50, 45, 40, 35, 30, 25, 24, 20, 15, 10, 5);
     my ($best, $bd) = ($nom[0], abs($f - $nom[0]));
     for my $n (@nom) {
         my $d = abs($f - $n);
@@ -896,6 +904,35 @@ sub mainpath_fmt_now {
     return "";
 }
 
+# 通过 RKCIS_CMD_SELECT_SETTING 向 sensor 下发 (res,fps,mbus,hdr) 精确选择原生模式.
+# 用于同一分辨率存在多个帧率档 (如 sc850sl 4K@40/mode0 与 4K@30/mode1) 时按请求 fps
+# 锁定模式; set_fmt 只按分辨率选档(且高帧率优先), 无法区分 30/40.
+# ioctl = _IOW('V', BASE_VIDIOC_PRIVATE(192)+44, struct rk_sensor_setting[20B packed])
+# 注意: fmt 必须用驱动实际 mediabus code (sc850sl=0x3007=SBGGR10_1X10), 旧代码
+# hardcode 的 0x2007 会让驱动 set_setting 匹配失败 ("couldn't match support modes").
+# 返回 1 成功 / 0 失败(不支持的架构或 ioctl 失败时忽略, 维持原状).
+sub sensor_select_setting {
+    my ($subdev, $w, $h, $fps) = @_;
+    my $arch = sh("uname -m 2>/dev/null");
+    $arch =~ s/^\s+|\s+$//g;
+    my %sys_nr = (x86_64 => 16, aarch64 => 29, aarch64_be => 29, arm => 54,
+                  riscv64 => 29, loongarch64 => 29);
+    my $snr = $sys_nr{$arch};
+    return 0 unless $snr && $subdev && -e $subdev;
+
+    # 读取驱动实际 mediabus code
+    my $fo = sh("v4l2-ctl -d $subdev --get-subdev-fmt pad=0 2>/dev/null");
+    my $fmt = ($fo =~ /Mediabus Code\s*:\s*0x([0-9a-fA-F]+)/) ? hex($1) : 0;
+    return 0 unless $fmt > 0;
+
+    my $io = (1 << 30) | (ord('V') << 8) | ((192 + 44) << 0) | (20 << 16);
+    open my $fh, '<', $subdev or return 0;
+    my $buf = pack('IIIII', $w + 0, $h + 0, $fps + 0, $fmt, 0);   # hdr=0 (linear)
+    my $ret = syscall($snr, fileno($fh), $io, $buf);
+    close $fh;
+    return (defined $ret && $ret == 0) ? 1 : 0;
+}
+
 # ==============================================================================
 # ISP 分辨率/帧率设定 (conf 为指导值): --set-isp DEV --size WxH --fps N
 # 仅当目标帧率精确匹配能力库原生模式时才切 sensor 模式 (如 120->1344x760, 30/25->2688x1520);
@@ -913,24 +950,7 @@ sub set_isp_fmt {
     my $caps = sensor_caps($model);
     return { ok => 0, sensor => $model, error => "能力库无该 sensor: $model" } unless $caps;
 
-    # 1. 精确匹配目标帧率的 sensor 原生模式 (无精确匹配则不切换, 交由实测校正)
-    #    同一帧率可能对应多个原生模式(如 imx415 30fps 对应 3864x2192 与 1944x1097),
-    #    必须按与请求分辨率面积最接近者确定, 避免 Perl 哈希 keys 无序迭代导致随机选择
-    my $smode = "";
-    my $req_area = $w * $h;
-    my $best_diff = -1;
-    for my $rk (keys %{ $caps->{fps} }) {
-        next unless grep { $_ == $fps } @{ $caps->{fps}{$rk} };
-        my ($rw, $rh) = split /x/, $rk;
-        next unless $rw && $rh;
-        my $diff = abs($rw * $rh - $req_area);
-        if ($best_diff < 0 || $diff < $best_diff) {
-            $best_diff = $diff;
-            $smode = $rk;
-        }
-    }
-
-    # 1.5 分辨率上限: ISP 输出不能超过 sensor 原生最大 (只能下缩放), 超限则校正 (如 4K 请求)
+    # 先做分辨率上限校正: ISP 输出不能超过 sensor 原生最大 (只能下缩放), 超限先钳制
     my $sw_max = 0; my $sh_max = 0;
     for my $rk (@{ $caps->{res} || [] }) {
         my ($rw, $rh) = split /x/, $rk;
@@ -945,6 +965,41 @@ sub set_isp_fmt {
         ($w, $h) = ($cw, $ch);
     }
 
+    # 1. 选 sensor 原生模式 —— 分辨率优先 + 覆盖约束 + 帧率回退:
+    #    (a) ISP 只能下缩放, 原生分辨率必须能覆盖输出 (rw>=w && rh>=h).
+    #        反例: 请求 2560x1440@60 时原生 1920x1080@60 "帧率命中"但覆盖不了 2K,
+    #        选了它会导致 ISP 上行缩放失败; 正确应选 4K。
+    #    (b) 首选 覆盖且精确支持请求 fps 的原生档(面积最接近);
+    #    (c) 若无档支持请求 fps, 则选覆盖中面积最接近的原生档, 帧率回退到该分辨率
+    #        支持且 <= 请求的最高档 (如 2K@60 -> 4K 无60 -> 回退 40)。
+    my $smode = "";
+    my $eff_fps = $fps;
+    my ($cand_fps, $cand_cov) = ("", "");
+    my ($d_fps, $d_cov) = (-1, -1);
+    for my $rk (keys %{ $caps->{fps} }) {
+        my ($rw, $rh) = split /x/, $rk;
+        next unless $rw && $rh && $rw >= $w && $rh >= $h;   # 覆盖约束
+        my @opts = sort { $b <=> $a } @{ $caps->{fps}{$rk} || [] };
+        next unless @opts;
+        my $diff = abs($rw * $rh - $w * $h);
+        if (grep { $_ == $fps } @opts) {
+            if ($d_fps < 0 || $diff < $d_fps) { $d_fps = $diff; $cand_fps = $rk; }
+        } elsif ($d_cov < 0 || $diff < $d_cov) {
+            $d_cov = $diff; $cand_cov = $rk;
+        }
+    }
+    if ($cand_fps) {
+        $smode = $cand_fps;
+        $eff_fps = $fps;
+    } elsif ($cand_cov) {
+        $smode = $cand_cov;
+        my @opts = sort { $b <=> $a } @{ $caps->{fps}{$cand_cov} || [] };
+        $eff_fps = 0;
+        for my $o (@opts) { if ($o <= $fps) { $eff_fps = $o; last; } }
+        $eff_fps = $opts[-1] if !$eff_fps && @opts;
+        print STDERR "⚠️ sensor ${smode} 无 ${fps}fps 档, 分辨率优先回退为 ${eff_fps}fps\n";
+    }
+
     my ($subdev, $sensor_ok, $actual_res) = ("", 0, "");
     my $mode_before = $smode ? sensor_fmt_now($ent) : "";
 
@@ -955,12 +1010,21 @@ sub set_isp_fmt {
         my ($sw, $sh) = split /x/, $smode;
         $subdev = find_subdev_node($ent);
         if ($subdev) {
-            # 设 sensor 模式 (code 0x2007 = SBGGR10_1X10, sc450ai 2-lane raw)
+            # 设 sensor 模式 (code 0x2007 仅为占位, 驱动会按 mode 回写真实 mbus code)
             sh("v4l2-ctl -d $subdev --set-subdev-fmt pad=0,width=${sw},height=${sh},code=0x2007 2>&1");
             sleep 2;   # 模式切换过渡期 (120fps 模式切换后给足稳定时间, 避免旧 VTS 滞留)
             # 回读校验
             $actual_res = sensor_fmt_now($ent);
             $sensor_ok = ($actual_res eq $smode) ? 1 : 0;
+
+            # 同一原生分辨率存在多帧率档 (如 4K@40 与 4K@30) 时, 按请求 fps 用
+            # RKCIS_CMD_SELECT_SETTING 精确锁定 (set_fmt 只按分辨率、默认取高帧率档).
+            # 失败不影响主流程 (维持 set_fmt 默认档), 由后续实测校正兜底.
+            my @f_opt = @{ $caps->{fps}{$smode} || [] };
+            if (@f_opt > 1) {
+                sensor_select_setting($subdev, $sw, $sh, $eff_fps);
+                sleep 1;
+            }
         }
     }
 
@@ -981,10 +1045,11 @@ sub set_isp_fmt {
         corrected_res => $corr_res,
         actual_res   => $actual_out,
         target_res   => "${w}x${h}",
-        target_fps   => $fps,
+        target_fps   => $eff_fps,
         subdev       => $subdev,
         set_isp      => ($r2 =~ /not|failed|Unable|error/i ? 0 : 1),
-        note         => $smode ? "" : "目标帧率 ${fps}fps 非 sensor 原生模式, 沿用当前模式并实测校正",
+        note         => $smode ? (($eff_fps != $fps) ? "sensor ${smode} 无 ${fps}fps 档, 分辨率优先回退为 ${eff_fps}fps" : "")
+                               : "目标帧率 ${fps}fps 非 sensor 原生模式, 沿用当前模式并实测校正",
     };
 }
 

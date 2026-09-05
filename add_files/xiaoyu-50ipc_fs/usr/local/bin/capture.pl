@@ -1430,7 +1430,7 @@ if ($SE) {
     my $vf = osd_build_vf($OE, $OFONT, $OTEXT, $OTS, $OTSF, $OFS, $CW, $CH, $SFPS);
 
     $ff_cmd = $audio_pipe
-            . "ffmpeg -f v4l2 -framerate $CFPS -video_size \"${CW}x${CH}\" "
+            . "ffmpeg -use_wallclock_as_timestamps 1 -fflags nobuffer -f v4l2 -framerate $CFPS -video_size \"${CW}x${CH}\" "
             . "-pix_fmt nv12 -i $FF_DEV"
             . $audio_in
             . " -vf \"${vf}\" "

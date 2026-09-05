@@ -660,6 +660,7 @@ EOF
 
 function extend_config() {
 	local conf="/etc/extend.conf"
+	local old_pwd=$(pwd)
 
 	if [ -f "${conf}" ];then
 		source "${conf}"
@@ -670,17 +671,27 @@ function extend_config() {
 	if [ -n "${variant_id}" ];then
 		echo "Config variant_id ..."
 		case "${variant_id}" in
-			"sc450ai_4mm") cd /etc/iqfiles
-				     ln -sf sc450ai_CRK4F4209_styleTstP0_4MM.json sc450ai_CRK4F4209_styleTstP0.json
-				     ;; 
-			"sc450ai_8mm") cd /etc/iqfiles
-				     ln -sf sc450ai_CRK4F4209_styleTstP0_8MM.json sc450ai_CRK4F4209_styleTstP0.json
-				     ;; 
+			"sc450ai_4mm")
+					cd /etc/iqfiles
+					ln -sf sc450ai_CRK4F4209_styleTstP0_4MM.json sc450ai_CRK4F4209_styleTstP0.json
+					;;
+			"sc450ai_8mm")
+					cd /etc/iqfiles
+					ln -sf sc450ai_CRK4F4209_styleTstP0_8MM.json sc450ai_CRK4F4209_styleTstP0.json
+					;;
+			"sc850sl_30fps")
+					cd /etc/iqfiles
+					ln -sf sc850sl_CMK-OT2115-PC1_30IRC-F16_3840x2160_30fps.json sc850sl_xiaoyu_50ipc.json
+					cd /etc
+					cp capture.conf capture.conf.backup
+					cp capture.conf.hevc_3k30 capture.conf
+					;;
 		esac
 		ls -l
 		echo "done"
 		echo
 	fi
+	cd $old_pwd
 }
 
 modify_user_pswd
