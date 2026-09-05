@@ -726,6 +726,24 @@ sub find_camera_dt_node {
             return $node;
         }
     }
+
+    # 回退: 部分 sensor 的媒体实体尾号与 DT 子节点 -N@ 序号不一致
+    # (如 sc850sl 实体 "3-0030-2" 而 DT 为 sc850sl-0@30 / sc850sl-1@30),
+    # 此时按 型号+地址 唯一匹配即可(同型号同地址的 module/lens 属性一致).
+    for my $i2c (glob "/proc/device-tree/i2c@*") {
+        next unless -d $i2c;
+        for my $node (glob "$i2c/*") {
+            next unless -d $node;
+            my $base = $node;
+            $base =~ s{^.*/}{};
+            next unless $base =~ /^([A-Za-z0-9_]+?)(?:_\d+)?(?:-\d+)?\@([0-9a-fA-F]+)$/;
+            my ($nm, $ad) = ($1, lc($2));
+            $nm =~ s/_\d+$//;
+            $nm =~ s/-\d+$//;
+            next unless lc($nm) eq lc($model) && $ad eq $addr_hex;
+            return $node;
+        }
+    }
     return "";
 }
 
