@@ -29,6 +29,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -44,6 +45,51 @@ CAPTURE_PL = "/usr/local/bin/capture.pl"
 ENUM_PL = "/usr/local/bin/capture-enum.pl"
 CHART_JS_PATH = "/usr/local/www/chart.min.js"
 HTML_PAGE = "/usr/local/www/capture-webui.html"   # 前端页面 (独立文件)
+
+# ---- 简单 TTL 缓存: 避免页面重载/设备切换时反复跑 capture-enum/modetest/实测抓帧 ----
+# 例: 采集帧率(ISP 只读)实测一次需 ~8-10s(预热40帧+300帧), devices/DRM/capture_res 各 ~0.3-1.5s.
+_CACHE = {}
+_CACHE_MAX = 256
+
+def _cached(key, ttl, build):
+    now = time.time()
+    hit = _CACHE.get(key)
+    if hit and now - hit[0] < ttl:
+        return hit[1]
+    val = build()
+    if len(_CACHE) >= _CACHE_MAX:
+        _CACHE.clear()
+    _CACHE[key] = (now, val)
+    return val
+
+
+def _cache_clear():
+    _CACHE.clear()
+
+
+def _warm_cache():
+    """后台预热常用动态枚举: 服务启动/配置变更后立即测量,
+    首次打开配置页时下拉基本即时 (ISP 采集帧率实测一次约数秒)."""
+    try:
+        cfg = load_config()
+        devs = {"/dev/video24", "/dev/video32"}
+        if isinstance(cfg, dict):
+            d0 = cfg.get("FFMPEG_CAM_DEV", "/dev/video24")
+            if isinstance(d0, str) and d0:
+                devs.add(d0)
+        for dd in devs:
+            _cached("capres:" + dd, 12, (lambda x: lambda: list_capture_res(dev=x))(dd))
+            _cached("fmt:" + dd + ":", 25, (lambda x: lambda: list_fps_formats(dev=x))(dd))
+    except Exception:
+        pass
+
+
+def _start_warmup():
+    try:
+        threading.Thread(target=_warm_cache, daemon=True).start()
+    except Exception:
+        pass
+
 
 SESSION_TTL = 12 * 3600      # 会话有效期 12 小时
 SESSIONS = {}                # token -> 过期时间戳
@@ -912,14 +958,40 @@ def list_capture_res(dev=None):
     dev = dev or cfg.get("FFMPEG_CAM_DEV", "/dev/video24")
     d = _enum_json("--source-res", dev)
     native = [r for r in ((d or {}).get("res") or []) if r]
+
+    # 该设备 sensor 原生上限 (来自枚举 max, 如 video24/sc850sl=3840x2160,
+    # video32/sc450ai=2688x1520). 标准候选档必须能由该 sensor 下缩放输出,
+    # 即宽高都不超过此上限 —— 否则 2K 设备会出现 4K/3200 等不可用档.
+    max_w = max_h = 0
+    if d and d.get("max") and re.match(r"^\d+x\d+$", str(d["max"])):
+        try:
+            max_w, max_h = (int(x) for x in str(d["max"]).split("x", 1))
+        except ValueError:
+            max_w = max_h = 0
+    if not max_w and native:
+        for r in native:
+            a, b = r.split("x", 1)
+            if b and int(a) * int(b) > max_w * max_h:
+                max_w, max_h = int(a), int(b)
+
     base = ["3840x2160", "3200x2000", "3200x1800", "2560x1600", "2560x1440",
             "1920x1200", "1920x1080", "1600x1000", "1600x900",
             "1280x800", "1280x720", "1024x768", "960x528", "640x480",
             "480x800", "800x480"]
+
     seen = {}
     vals = []
     for r in (native + base):
-        if r and r not in seen:
+        if not r:
+            continue
+        if max_w and max_h:
+            try:
+                a, b = r.split("x", 1)
+                if int(a) > max_w or int(b) > max_h:
+                    continue          # 超出该设备能力, 屏蔽
+            except ValueError:
+                continue
+        if r not in seen:
             seen[r] = 1
             vals.append({"value": r, "label": r})
 
@@ -1144,24 +1216,28 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, {"schema": config_schema_payload()})
                 return
             if path == "/api/devices":
-                self._send_json(200, {"devices": list_video_devices()})
+                self._send_json(200, {"devices": _cached("devices", 10, list_video_devices)})
                 return
             if path == "/api/drm":
-                self._send_json(200, list_drm_connectors())
+                self._send_json(200, _cached("drm", 15, list_drm_connectors))
                 return
             if path == "/api/fonts":
-                self._send_json(200, {"fonts": list_chinese_fonts(), "pango": list_pango_fonts()})
+                self._send_json(200, {"fonts": _cached("fonts", 20, list_chinese_fonts),
+                                      "pango": _cached("pango", 20, list_pango_fonts)})
                 return
             if path == "/api/formats":
                 qs = parse_qs(u.query)
-                size = qs.get("size", [None])[0]
-                dev = qs.get("dev", [None])[0]
-                self._send_json(200, list_fps_formats(size=size, dev=dev))
+                size = qs.get("size", [None])[0] or ""
+                dev = qs.get("dev", [None])[0] or ""
+                # ISP 只读帧率是实测(预热40帧+300帧≈8-10s), 缓存 20s 避免每次刷新/切换都重测
+                self._send_json(200, _cached("fmt:%s:%s" % (dev, size), 20,
+                                              lambda: list_fps_formats(size=size or None, dev=dev or None)))
                 return
             if path == "/api/capture_res":
                 qs = parse_qs(u.query)
-                dev = qs.get("dev", [None])[0]
-                self._send_json(200, {"res": list_capture_res(dev=dev)})
+                dev = qs.get("dev", [None])[0] or ""
+                self._send_json(200, {"res": _cached("capres:%s" % dev, 12,
+                                                     lambda: list_capture_res(dev=dev or None))})
                 return
             if path == "/api/hdr/status":
                 self._send_json(200, hdr_status())
@@ -1169,10 +1245,11 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/hdr":
                 qs = parse_qs(u.query)
                 dev = qs.get("dev", [None])[0]
-                self._send_json(200, hdr_info(dev=dev))
+                self._send_json(200, _cached("hdr:" + str(dev), 10,
+                                              lambda: hdr_info(dev=dev)))
                 return
             if path == "/api/alsa":
-                self._send_json(200, list_alsa())
+                self._send_json(200, _cached("alsa", 10, list_alsa))
                 return
             if path == "/api/stats":
                 self._send_json(200, stats_payload())
@@ -1188,7 +1265,16 @@ class Handler(BaseHTTPRequestHandler):
                 data = f.read()
             if ctype is None:
                 ctype = "text/html; charset=utf-8" if fpath.endswith(".html") else "application/octet-stream"
-            self._send(200, data, ctype)
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            if fpath.endswith(".html"):
+                # 前端页面每请求刷新, 避免浏览器缓存旧 JS 导致联动物理/屏蔽不生效
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Pragma", "no-cache")
+                self.send_header("Expires", "0")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
         except Exception:
             self._send_text(404, "not found")
 
@@ -1271,6 +1357,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": "bad config"})
                 return
             added = save_config(cfg)
+            _cache_clear()
+            _start_warmup()
             self._send_json(200, {"ok": True, "added": added})
             return
 
@@ -1282,11 +1370,15 @@ class Handler(BaseHTTPRequestHandler):
                 return
             added = save_config(cfg)
             res = service_action("restart")
+            _cache_clear()
+            _start_warmup()
             self._send_json(200, {"ok": res["ok"], "added": added, "restart": res})
             return
 
         if path == "/api/config/restore":
             ok, msg = restore_default_config()
+            _cache_clear()
+            _start_warmup()
             self._send_json(200, {"ok": ok, "msg": msg})
             return
 
@@ -1303,6 +1395,7 @@ def main():
     args = ap.parse_args()
 
     ensure_default_config()   # 首次启动: 备份当前配置为默认配置
+    _start_warmup()           # 后台预热动态枚举, 首次打开页面基本即时
 
     server = ThreadingHTTPServer((args.bind, args.port), Handler)
 

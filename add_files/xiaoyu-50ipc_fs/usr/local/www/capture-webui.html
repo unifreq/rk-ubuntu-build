@@ -635,12 +635,22 @@ function rebootOs() {
 
 async function loadDynamicOptions() {
   const dyn = { devices: [], drm: [], fonts: [], pango: [], drm_ids: [], drm_modes: [], capture_res: [], formats: [], alsa_dev: [], alsa_rate: [] };
-  try { dyn.devices = (await api("/api/devices")).devices || []; } catch (e) {}
-  try { const d = await api("/api/drm"); dyn.drm = d.connectors || []; dyn.drm_ids = d.drm_ids || []; dyn.drm_modes = d.modes || []; } catch (e) {}
-  try { const f = await api("/api/fonts"); dyn.fonts = f.fonts || []; dyn.pango = f.pango || []; } catch (e) {}
-  try { dyn.capture_res = (await api("/api/capture_res")).res || []; } catch (e) {}
-  try { const fd = await api("/api/formats"); dyn.formats = fd.fps || []; dyn.formats_readonly = !!fd.readonly; } catch (e) {}
-  try { const a = await api("/api/alsa"); dyn.alsa_dev = a.devices || []; dyn.alsa_rate = a.rates || []; } catch (e) {}
+  // 并行拉取所有动态枚举(原串行 await 会累加秒级延迟; 并行后总耗时≈最慢单个)。
+  // 后端对这些接口已做短 TTL 缓存, 页面重载/登录再次进入时基本秒回。
+  const [rd, rdrm, rf, rcr, rfmt, ra] = await Promise.all([
+    api("/api/devices").then((x) => x.devices || [], () => []),
+    api("/api/drm").then((x) => x, () => ({})),
+    api("/api/fonts").then((x) => x, () => ({})),
+    api("/api/capture_res").then((x) => x.res || [], () => []),
+    api("/api/formats").then((x) => x, () => ({fps: [], readonly: false})),
+    api("/api/alsa").then((x) => x, () => ({devices: [], rates: []})),
+  ]);
+  dyn.devices = rd;
+  dyn.drm = rdrm.connectors || []; dyn.drm_ids = rdrm.drm_ids || []; dyn.drm_modes = rdrm.modes || [];
+  dyn.fonts = rf.fonts || []; dyn.pango = rf.pango || [];
+  dyn.capture_res = rcr;
+  dyn.formats = rfmt.fps || []; dyn.formats_readonly = !!rfmt.readonly;
+  dyn.alsa_dev = ra.devices || []; dyn.alsa_rate = ra.rates || [];
   document.querySelectorAll("select[data-dynamic]").forEach((sel) => {
     const name = sel.dataset.dynamic;
     if (!name) return;   // 非动态下拉 (静态枚举) 保留 options, 不被清空
@@ -695,7 +705,13 @@ async function reloadCaptureDeps() {
   const devq = dev ? ("?dev=" + encodeURIComponent(dev)) : "";
   try {
     const cr = (await api("/api/capture_res" + devq)).res || [];
-    fillDynamicSel(document.querySelector('select[data-key="CAPTURE_RES"]'), cr);
+    const resSel = document.querySelector('select[data-key="CAPTURE_RES"]');
+    const prev = resSel ? resSel.value : "";
+    // 设备能力变更: 不保留已不支持的旧分辨率, 自动落到该设备最大支持档
+    fillDynamicSel(resSel, cr, false);
+    if (resSel && cr.length && !cr.some((o) => o.value === prev)) {
+      resSel.value = cr[0].value;
+    }
     await reloadFormats(dev);
   } catch (e) {}
 }
@@ -722,15 +738,17 @@ async function reloadFormats(dev) {
     updateStreamFpsOptions();
   } catch (e) {}
 }
-/* 用数据重建 select 选项, 保留当前选中 (若当前值不在新选项则补回) */
-function fillDynamicSel(sel, items) {
+/* 用数据重建 select 选项; keepMissing=true 时若当前值不在新选项则补回(默认),
+   否则不补(用于设备能力变更后屏蔽已不支持的选择, 由调用方落回有效档) */
+function fillDynamicSel(sel, items, keepMissing) {
   if (!sel) return;
+  if (keepMissing === undefined) keepMissing = true;
   const cur = sel.value;
   sel.innerHTML = "";
   (items || []).forEach((o) => {
     const op = document.createElement("option"); op.value = o.value; op.textContent = o.label; sel.appendChild(op);
   });
-  if (cur && !Array.from(sel.options).some((o) => o.value === cur)) {
+  if (keepMissing && cur && !Array.from(sel.options).some((o) => o.value === cur)) {
     const op = document.createElement("option"); op.value = cur; op.textContent = cur; sel.appendChild(op);
   }
   sel.value = cur;
