@@ -1,0 +1,14 @@
+[Unit]
+Description=Enable Rockchip camera engine rkaiq
+DefaultDependencies=no
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/rkaiq_3A_server
+Restart=on-failure
+RestartSec=2
+User=root
+Group=root
+
+[Install]
+WantedBy=sysinit.target

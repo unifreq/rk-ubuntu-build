@@ -1,0 +1,5 @@
+# iqfiles 是 rkaiq 库在固定路径 /etc/iqfiles 读取的只读标定数据,
+# 非用户可编辑配置, 刻意不标记为 conffile
+camera-engine-rkaiq: file-in-etc-not-marked-as-conffile
+# sysinit.target.wants 软链是启用 sysinit 单元的常规方式
+camera-engine-rkaiq: systemd-service-file-outside-lib
