@@ -22,7 +22,7 @@ amixer -c 0 cset numid=67 1 # ACodec ADC ON
 
 # 扬声器输出
 amixer -c 0 cset numid=71 1 # Power Amplifier ON
-amixer -c 0 cset numid=68 300,300 # DAC Digital Volume
+amixer -c 0 cset numid=68 268,268 # DAC Digital Volume
 amixer -c 0 cset numid=72 on # spk switch
 amixer -c 0 cset numid=75 on # Speaker Switch
 
