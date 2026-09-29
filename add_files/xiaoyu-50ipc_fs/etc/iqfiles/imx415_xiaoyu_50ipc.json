@@ -121278,7 +121278,7 @@
   "uapi_len": 0,
   "sys_static_cfg": {
     "algoSwitch": {
-      "enable": 0,
+      "enable": 1,
       "disable_algos": [
         "DISABLE_AF"
       ],
