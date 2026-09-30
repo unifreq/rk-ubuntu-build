@@ -1175,6 +1175,10 @@ if ($opt{stop})    { stop_apps("x");   print "已停止\n";    exit 0; }
 if ($opt{status})  { show_status($GST_DEV, $FF_DEV, $DE, $SE); exit 0; }
 if ($opt{restart}) { stop_apps("x");   sleep 2; }
 
+# 清理可能残留的帧率探测进程(无超时会挂死并占住节点, 导致后续取流 EBUSY)
+system("pkill -f 'v4l2-ctl .*$GST_DEV' 2>/dev/null");
+system("pkill -f 'v4l2-ctl .*$FF_DEV' 2>/dev/null");
+
 # 源类型识别 + 采集帧率 (E1)
 my $SRC_TYPE      = detect_source_type($FF_DEV);
 my $CFPS;

@@ -842,12 +842,13 @@ sub actual_fps {
     my ($dev, $size, $frames) = @_;
     my $count = ($frames && $frames > 0) ? $frames : 60;
     my $warmup = $count;
+    my $to = int($count / 10) + 10;
 
     # 预热流: 丢弃开流/切模式可能出现的瞬态, 让 sensor 进入稳态后再统计
-    system("v4l2-ctl -d $dev --stream-mmap --stream-count=$warmup --stream-to=/dev/null >/dev/null 2>&1");
+    system("timeout -k 2 $to v4l2-ctl -d $dev --stream-mmap --stream-count=$warmup --stream-to=/dev/null >/dev/null 2>&1");
     sleep 1;
 
-    my $out = `v4l2-ctl -d $dev --stream-mmap --stream-count=$count --stream-to=/dev/null 2>&1`;
+    my $out = `timeout -k 2 $to v4l2-ctl -d $dev --stream-mmap --stream-count=$count --stream-to=/dev/null 2>&1`;
     my @fpsm = ($out =~ /([\d.]+)\s*fps/g);
     my $fps  = @fpsm ? nearest_nominal($fpsm[-1]) : 0;
     my $method = $fps ? "measured" : "";
