@@ -34,8 +34,8 @@ gstreamer1.0-tools
 ./gst-plugins-base1.0/libgstreamer-plugins-base1.0-0_1.22.0-3+deb12u6+rkrga~bookworm_arm64.deb
 ./gst-plugins-base1.0/libgstreamer-plugins-base1.0-dev_1.22.0-3+deb12u6+rkrga~bookworm_arm64.deb
 ./gstreamer-rockchip/gstreamer1.0-rockchip1_1.14-4~bookworm_arm64.deb
-./librga/librga2_2.2.0+git20260121~2cffdf6~bookworm_arm64.deb
-./librga/librga-dev_2.2.0+git20260121~2cffdf6~bookworm_arm64.deb
+./librga/librga2_1.10.6+20260610~dae723c~bookworm_arm64.deb
+./librga/librga-dev_1.10.6+20260610~dae723c~bookworm_arm64.deb
 ./libv4l-rkmpp/libv4l-rkmpp_1.8.0-1+git20250430~c5bc0ae~bookworm_arm64.deb
 ./mpp/librockchip-mpp1_1.5.0-3+git20260811~c08762e~bookworm_arm64.deb
 ./mpp/librockchip-mpp-dev_1.5.0-3+git20260811~c08762e~bookworm_arm64.deb
