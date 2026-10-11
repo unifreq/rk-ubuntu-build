@@ -34,8 +34,8 @@ gstreamer1.0-tools
 ./gst-plugins-base1.0/libgstreamer-plugins-base1.0-0_1.20.1-1ubuntu0.7+rkrga~jammy_arm64.deb
 ./gst-plugins-base1.0/libgstreamer-plugins-base1.0-dev_1.20.1-1ubuntu0.7+rkrga~jammy_arm64.deb
 ./gstreamer-rockchip/gstreamer1.0-rockchip1_1.14-4~jammy_arm64.deb
-./librga/librga2_1.10.6+20260610~dae723c~jammy_arm64.deb
-./librga/librga-dev_1.10.6+20260610~dae723c~jammy_arm64.deb
+./librga/librga2_2.2.10+20260513+1.10.6~jammy_arm64.deb
+./librga/librga-dev_2.2.10+20260513+1.10.6~jammy_arm64.deb
 ./librist/librist4_0.2.11+dfsg-1build1~jammy_arm64.deb
 ./librist/librist-dev_0.2.11+dfsg-1build1~jammy_arm64.deb
 ./librist/rist-tools_0.2.11+dfsg-1build1~jammy_arm64.deb
