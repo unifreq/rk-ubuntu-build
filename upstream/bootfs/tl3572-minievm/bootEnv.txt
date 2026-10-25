@@ -1,0 +1,36 @@
+verbosity=7
+bootlogo=false
+fdtfile=rockchip/rk3572-tl3572-minievm.dtb
+rootdev=/dev/mmcblk0p2
+rootfstype=xfs
+rootflags=defaults
+console=serial
+consoleargs=console=ttyFIQ0,1500000n8 console=ttyS0,1500000n8
+usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
+docker_optimizations=on
+earlycon=off
+earlyconargs=earlycon=uart8250,mmio32,0x2c130000,1500000n8
+extraargs=
+extraboardargs=net.ifnames=0
+# Overlays清单
+# rk3572-tl3572-minievm-camera-csi1
+# rk3572-tl3572-minievm-camera-csi2
+# rk3572-tl3572-minievm-dsi800x1280-touch-gt911
+# rk3572-tl3572-minievm-dsi800x1280-touch-xpt2046
+# rk3572-tl3572-minievm-export1-pcie1
+# rk3572-tl3572-minievm-export1-sai1
+# rk3572-tl3572-minievm-export1-spdif
+# rk3572-tl3572-minievm-export2-can0
+# rk3572-tl3572-minievm-export2-can2
+# rk3572-tl3572-minievm-export2-i2c3
+# rk3572-tl3572-minievm-export2-i2c4-ds1307
+# rk3572-tl3572-minievm-export2-i2c5
+# rk3572-tl3572-minievm-export2-i2c8
+# rk3572-tl3572-minievm-export2-pdm
+# rk3572-tl3572-minievm-export2-spi3
+# rk3572-tl3572-minievm-export2-uart8
+# 当指定了overlay_prefix=rk3572-tl3572-minievm时，overlay只需填入后面的部分即可，如 overlay=camera-csi1
+# 多个overlay之间，以空格分隔，如：overlay=export1-pcie1 export2-i2c4-ds1307
+overlay_prefix=rk3572-tl3572-minievm
+overlays=
+user_overlays=
