@@ -110,12 +110,12 @@ sub get_unique_id {
         # 方法2: 按顺序尝试获取硬件ID
         log_message("尝试使用硬件ID方法获取唯一ID");
         
-        if (-e '/sys/block/mmcblk1/device/cid') {
-            open(my $fh, '<', '/sys/block/mmcblk1/device/cid') or warn "无法读取mmcblk1 cid";
+        if (-e '/sys/module/rockchip_cpuinfo/parameters/id') {
+            open(my $fh, '<', '/sys/module/rockchip_cpuinfo/parameters/id') or warn "无法读取cpuid";
             $serial = <$fh>;
             close($fh);
             chomp($serial);
-            log_message("使用 mmcblk1 cid: " . $serial);
+            log_message("使用 cpuid: " . $serial);
         } 
         elsif (-e '/sys/block/mmcblk0/device/cid') {
             open(my $fh, '<', '/sys/block/mmcblk0/device/cid') or warn "无法读取mmcblk0 cid";
