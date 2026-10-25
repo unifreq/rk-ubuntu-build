@@ -1,0 +1,17 @@
+[Unit]
+Description=Capture Web UI (HTTP management interface)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+# 默认监听端口 80、监听所有网卡 0.0.0.0
+# 如需修改: --port 改端口, --bind 改监听地址 (仅本机访问可改为 127.0.0.1)
+ExecStart=/usr/bin/python3 /usr/local/bin/capture-webui.py --port 80 --bind 0.0.0.0
+Restart=always
+RestartSec=3
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

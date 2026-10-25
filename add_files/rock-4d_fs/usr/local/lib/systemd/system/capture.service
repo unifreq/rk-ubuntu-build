@@ -1,0 +1,23 @@
+[Unit]
+Description=Rockchip RV1126B Camera Capture/Display/RTSP (GStreamer single multi-pipeline)
+After=network.target rkaiq_3A.service mediamtx.service
+Wants=rkaiq_3A.service mediamtx.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/perl /usr/local/bin/capture.pl
+ExecStop=/usr/bin/perl /usr/local/bin/capture.pl --stop
+# 守护: 异常退出后 5 秒自动重启
+Restart=always
+RestartSec=5
+# 优雅停止超时 (给 gst 充分时间排空 DMA 后退出)
+TimeoutStopSec=20
+# 确保整个 cgroup 的子进程 (gst-launch 等) 都被管理
+KillMode=control-group
+# 超时后 SIGKILL 兜底
+SendSIGKILL=yes
+
+[Install]
+WantedBy=multi-user.target
