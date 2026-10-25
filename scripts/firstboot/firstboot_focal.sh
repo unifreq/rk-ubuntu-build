@@ -658,6 +658,12 @@ EOF
 	start_service systemd-journald.service
 }
 
+function install_local_debs() {
+	if [ -d /var/cache/apt/local/auto ];then
+		apt install -y --no-install-recommends /var/cache/apt/local/auto/*.deb
+	fi
+}
+
 modify_user_pswd
 
 fix_partition
@@ -671,6 +677,8 @@ config_network
 config_openssh_server
 config_i18n
 disable_suspend
+
+install_local_debs
 
 tunning_log_settings
 clean_logs

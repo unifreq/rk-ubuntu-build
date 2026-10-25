@@ -309,11 +309,16 @@ if [ -n "${platform_add_archive_home}" ] && [ -d "$platform_add_archive_home" ];
 	target_path=${PWD}
 	(
 		cd $platform_add_archive_home
-		arcs=$(ls)
-		for arc in $arcs;do
-			echo "$arc"
-			tar xf $arc -C $target_path
+		tar_arcs=$(ls *.tar *.tar.* *.tgz)
+		for arc in $tar_arcs;do
+			echo -n "extract $arc ... "
+			tar xf $arc -C $target_path >/dev/null 2>&1 && echo "okay" || echo "failed"
 		done
+
+		if [ -d debs ];then
+			mkdir -p "${target_path}/var/cache/apt/local" && \
+				cp -av debs/* "${target_path}/var/cache/apt/local/"
+		fi
 	)
 	echo "done"
 	echo
